@@ -29,7 +29,7 @@ Create `config.json`
 Create signing request
 
 ```shell
-npx hyper-multisig request-core 1
+hyper-multisig request-core 1
 # Request: {
 #   "key": "eknig6fytx46k8bdqzssx94b...",
 #   "length": 1,
@@ -44,7 +44,7 @@ Use [hypercore-sign](https://github.com/holepunchto/hypercore-sign) to create si
 Dry-run
 
 ```shell
-npx hyper-multisig commit-core --dry-run <request> <response1> <response2>
+hyper-multisig commit-core --dry-run <request> <response1> <response2>
 # Quorum 2 / 3
 # Review batch to commit: {
 #   "destCore": {
@@ -68,7 +68,7 @@ npx hyper-multisig commit-core --dry-run <request> <response1> <response2>
 Commit multisig
 
 ```shell
-npx hyper-multisig commit-core <request> <response1> <response2>
+hyper-multisig commit-core <request> <response1> <response2>
 # Committed: {
 #   "destCore": {
 #     "key": "yej8egs9xyud1px3ywnscx7...",
