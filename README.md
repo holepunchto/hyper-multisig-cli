@@ -1,6 +1,6 @@
 ![CI](https://github.com/holepunchto/hyper-multisig-cli/actions/workflows/ci.yml/badge.svg)
 
-# hyper-multisig-cli
+# Hyper Multisig Cli
 
 - Create signing request
 - Commit changes to multisig core/drive (dry-run supported)
