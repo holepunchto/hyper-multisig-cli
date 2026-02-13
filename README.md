@@ -26,9 +26,9 @@ Create `config.json`
 
 ```json
 {
-  "publicKeys": ["o37a1xctj7zhiuz41rk...", "qgbd9nhm76ynh54mp7g...", "schnuhchkp9xbz4..."],
+  "publicKeys": ["abc123...", "abc456...", "abc789..."],
   "namespace": "holepunchto/my-app",
-  "srcKey": "w94a4mrokgp4hu757rh..."
+  "srcKey": "abcdef..."
 }
 ```
 
