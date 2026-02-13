@@ -5,10 +5,15 @@
 - Create signing request
 - Commit changes to multisig core/drive (dry-run supported)
 
-## Usage
+## Installation
 
 ```shell
 npm i -g hyper-multisig-cli@latest
+```
+
+## Usage
+
+```shell
 hyper-multisig --help
 hyper-multisig-bare --help
 ```
