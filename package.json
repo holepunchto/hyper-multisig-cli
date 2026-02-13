@@ -2,15 +2,14 @@
   "name": "hyper-multisig-cli",
   "version": "0.0.1",
   "description": "CLI of hyper-multisig",
-  "main": "index.js",
+  "main": "bin.js",
   "bin": {
     "hyper-multisig": "./bin.js",
     "hyper-multisig-bare": "./bin-bare.js"
   },
   "files": [
     "bin-bare.js",
-    "bin.js",
-    "index.js"
+    "bin.js"
   ],
   "scripts": {
     "format": "prettier --write . && lunte --fix",
