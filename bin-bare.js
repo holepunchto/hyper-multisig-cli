@@ -1,2 +1,2 @@
 #!/usr/bin/env bare
-require('.').parse()
+require('./bin')
