@@ -9,7 +9,8 @@
 
 ```shell
 npm i -g hyper-multisig-cli@latest
-hyper-multisig
+hyper-multisig --help
+hyper-multisig-bare --help
 ```
 
 ## Example
