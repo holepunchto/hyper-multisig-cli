@@ -8,8 +8,8 @@
 ## Usage
 
 ```shell
-npm i
-npx hyper-multisig
+npm i -g hyper-multisig-cli@latest
+hyper-multisig
 ```
 
 ## Example
