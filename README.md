@@ -43,7 +43,7 @@ Use [hypercore-sign](https://github.com/holepunchto/hypercore-sign) to create si
 Dry-run
 
 ```shell
-hyper-multisig commit-core --dry-run <request> <response1> <response2>
+hyper-multisig verify-core <request> <response1> <response2>
 ```
 
 Commit multisig
