@@ -93,11 +93,13 @@ async function requestCore() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcCore = store.get({ key: idEnc.decode(srcKey) })
   const multisig = new Multisig(store, swarm)
-  const res = await multisig.requestCore(publicKeys, namespace, srcCore, length, {
-    force,
-    peerUpdateTimeout: peerUpdateTimeout,
-    quorum
-  })
+  const res = await multisig
+    .requestCore(publicKeys, namespace, srcCore, length, {
+      force,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+    .done()
 
   printRequest(res.request)
   goodbye.exit()
@@ -115,11 +117,14 @@ async function verifyCore() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcCore = store.get({ key: idEnc.decode(srcKey) })
   const multisig = new Multisig(store, swarm)
-  const res = await multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+  const req = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
     dryRun: true,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
+  setupProgressLogs(req, 'core')
+
+  const res = await req.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
   console.info(`Core key: ${res.result.destCore.key}`)
@@ -138,12 +143,15 @@ async function commitCore() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcCore = store.get({ key: idEnc.decode(srcKey) })
   const multisig = new Multisig(store, swarm)
-  const res = await multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+  const req = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
     skipTargetChecks: firstCommit,
     force: forceDangerous,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
+
+  setupProgressLogs(req, 'core')
+  const res = await req.done()
 
   printCommit(res.manifest, res.quorum, res.result)
   console.info(`Core key: ${res.result.destCore.key}`)
@@ -157,11 +165,13 @@ async function requestDrive() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
   const multisig = new Multisig(store, swarm)
-  const res = await multisig.requestDrive(publicKeys, namespace, srcDrive, length, {
-    force,
-    peerUpdateTimeout: peerUpdateTimeout,
-    quorum
-  })
+  const res = await multisig
+    .requestDrive(publicKeys, namespace, srcDrive, length, {
+      force,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+    .done()
 
   printRequest(res.request)
   goodbye.exit()
@@ -178,11 +188,15 @@ async function verifyDrive() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
   const multisig = new Multisig(store, swarm)
-  const res = await multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+  const req = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
     dryRun: true,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
+
+  setupProgressLogs(req, 'drive')
+
+  const res = await req.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
   console.info(`Drive key: ${res.result.db.destCore.key}`)
@@ -201,15 +215,31 @@ async function commitDrive() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
   const multisig = new Multisig(store, swarm)
-  const res = await multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+  const req = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
     skipTargetChecks: firstCommit,
     force: forceDangerous,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
+  setupProgressLogs(req, 'drive')
+
+  const res = await req.done()
 
   printCommit(res.manifest, res.quorum, res.result)
   console.info(`Drive key: ${res.result.db.destCore.key}`)
+}
+
+function setupProgressLogs(req, name) {
+  req.on('verify-committable-start', () => {
+    console.log(`Verifying the ${name} is safe to commit...`)
+  })
+  req.on('commit-start', () => {
+    console.log(`Committing the ${name}...`)
+  })
+  req.on('verify-committed-start', (key) => {
+    console.log(`Committed the ${name} (key ${idEnc.normalize(key)})`)
+    console.log('Waiting for remote seeders to pick up the changes...')
+  })
 }
 
 function printRequest(request) {

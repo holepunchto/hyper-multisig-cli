@@ -121,13 +121,27 @@ test('core request and sign CLI flow', async (t) => {
     let coreKey = null
     {
       const stdoutDec = new NewlineDecoder('utf-8')
-      commitCoreProc.stdout.on('data', (d) => {
+      commitCoreProc.stdout.on('data', async (d) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
           if (line.includes('Core key:')) {
             tCommitCore.pass('sign request committed')
             coreKey = line.split('Core key: ')[1]
+          }
+
+          if (line.includes('Committed the core (key')) {
+            if (DEBUG) console.log('REMOTED BEGIN DOWNLOADING TARGET')
+            const key = idEnc.decode(line.split('(key ')[1].slice(0, 52))
+            const tgtCopy = store2.get(key)
+            await tgtCopy.ready()
+            swarm2.join(tgtCopy.discoveryKey)
+            tgtCopy.download({ start: 0, end: -1 })
+
+            const tgtCopy2 = store3.get(key)
+            await tgtCopy2.ready()
+            swarm3.join(tgtCopy2.discoveryKey)
+            await tgtCopy2.download({ start: 0, end: -1 })
           }
         }
       })
@@ -311,13 +325,38 @@ test('drive request and sign CLI flow', async (t) => {
     let driveKey = null
     {
       const stdoutDec = new NewlineDecoder('utf-8')
-      commitDriveProc.stdout.on('data', (d) => {
+      commitDriveProc.stdout.on('data', async (d) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
           if (line.includes('Drive key:')) {
             tCommitDrive.pass('sign request committed')
             driveKey = line.split('Drive key: ')[1]
+          }
+
+          if (line.includes('Committed the drive (key')) {
+            if (DEBUG) console.log('REMOTES BEGIN DOWNLOADING TARGET')
+            const key = idEnc.decode(line.split('(key ')[1].slice(0, 52))
+
+            const tgtCopy = new Hyperdrive(store2, key)
+            await tgtCopy.ready()
+            swarm2.join(tgtCopy.discoveryKey)
+            await tgtCopy.getBlobs()
+            await tgtCopy.db.core.download({ start: 0, end: -1 })
+            await tgtCopy.blobs.core.download({
+              start: 0,
+              end: -1
+            })
+
+            const tgtCopy2 = new Hyperdrive(store3, key)
+            await tgtCopy2.ready()
+            swarm3.join(tgtCopy2.discoveryKey)
+            await tgtCopy2.getBlobs()
+            await tgtCopy2.db.core.download({ start: 0, end: -1 })
+            await tgtCopy2.blobs.core.download({
+              start: 0,
+              end: -1
+            })
           }
         }
       })
