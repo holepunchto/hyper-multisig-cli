@@ -4,8 +4,8 @@
   "description": "CLI of hyper-multisig",
   "main": "bin.js",
   "bin": {
-    "hyper-multisig": "./bin.js",
-    "hyper-multisig-bare": "./bin-bare.js"
+    "hyper-multisig": "bin.js",
+    "hyper-multisig-bare": "bin-bare.js"
   },
   "files": [
     "bin-bare.js",
