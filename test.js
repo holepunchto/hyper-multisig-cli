@@ -403,7 +403,7 @@ test('core request and sign CLI flow', async (t) => {
   }
 })
 
-test.solo('drive request and sign CLI flow', async (t) => {
+test('drive request and sign CLI flow', async (t) => {
   const { bootstrap, store, swarm, store2, swarm2, store3, swarm3, store4, swarm4 } = await setup(
     t,
     4
