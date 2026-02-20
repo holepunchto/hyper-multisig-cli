@@ -291,7 +291,7 @@ test('core request and sign CLI flow', async (t) => {
 
   const responses2 = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
 
-  // second verify
+  // second verify (without --first-commit)
   {
     const verifyCoreProc = spawn(process.execPath, [
       EXECUTABLE,
@@ -714,7 +714,7 @@ test.solo('drive request and sign CLI flow', async (t) => {
 
   const responses2 = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
 
-  // second verify
+  // second verify (without --first-commit)
   {
     const verifyDriveProc = spawn(process.execPath, [
       EXECUTABLE,
