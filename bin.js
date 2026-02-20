@@ -25,7 +25,10 @@ const cmdRequestCore = command(
 const cmdVerifyCore = command(
   'verify-core',
   description('Verify multisig'),
-  flag('--first-commit', 'Set when this is the first commit to the multisig target, so it skips those checks'),
+  flag(
+    '--first-commit',
+    'Set when this is the first commit to the multisig target, so it skips those checks'
+  ),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
@@ -35,7 +38,10 @@ const cmdVerifyCore = command(
 const cmdCommitCore = command(
   'commit-core',
   description('Commit multisig'),
-  flag('--first-commit', 'Set when this is the first commit to the multisig target, so it skips those checks'),
+  flag(
+    '--first-commit',
+    'Set when this is the first commit to the multisig target, so it skips those checks'
+  ),
   flag('--force-dangerous', 'Advanced option, it might break the core on misuse'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
@@ -55,7 +61,10 @@ const cmdRequestDrive = command(
 const cmdVerifyDrive = command(
   'verify-drive',
   description('Verify multisig'),
-  flag('--first-commit', 'Set when this is the first commit to the multisig target, so it skips those checks'),
+  flag(
+    '--first-commit',
+    'Set when this is the first commit to the multisig target, so it skips those checks'
+  ),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
@@ -65,7 +74,10 @@ const cmdVerifyDrive = command(
 const cmdCommitDrive = command(
   'commit-drive',
   description('Commit multisig'),
-  flag('--first-commit', 'Set when this is the first commit to the multisig target, so it skips those checks'),
+  flag(
+    '--first-commit',
+    'Set when this is the first commit to the multisig target, so it skips those checks'
+  ),
   flag('--force-dangerous', 'Advanced option, it might break the drive on misuse'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
