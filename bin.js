@@ -117,14 +117,14 @@ async function verifyCore() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcCore = store.get({ key: idEnc.decode(srcKey) })
   const multisig = new Multisig(store, swarm)
-  const req = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+  const runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
     dryRun: true,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
-  setupProgressLogs(req, 'core')
+  setupProgressLogs(runner, 'core')
 
-  const res = await req.done()
+  const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
   console.info(`Core key: ${res.result.destCore.key}`)
@@ -143,15 +143,15 @@ async function commitCore() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcCore = store.get({ key: idEnc.decode(srcKey) })
   const multisig = new Multisig(store, swarm)
-  const req = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+  const runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
     skipTargetChecks: firstCommit,
     force: forceDangerous,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
 
-  setupProgressLogs(req, 'core')
-  const res = await req.done()
+  setupProgressLogs(runner, 'core')
+  const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result)
   console.info(`Core key: ${res.result.destCore.key}`)
@@ -188,15 +188,15 @@ async function verifyDrive() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
   const multisig = new Multisig(store, swarm)
-  const req = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+  const runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
     dryRun: true,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
 
-  setupProgressLogs(req, 'drive')
+  setupProgressLogs(runner, 'drive')
 
-  const res = await req.done()
+  const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
   console.info(`Drive key: ${res.result.db.destCore.key}`)
@@ -215,15 +215,15 @@ async function commitDrive() {
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
   const multisig = new Multisig(store, swarm)
-  const req = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+  const runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
     skipTargetChecks: firstCommit,
     force: forceDangerous,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
-  setupProgressLogs(req, 'drive')
+  setupProgressLogs(runner, 'drive')
 
-  const res = await req.done()
+  const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result)
   console.info(`Drive key: ${res.result.db.destCore.key}`)
@@ -243,9 +243,9 @@ function setupProgressLogs(req, name) {
 }
 
 function printRequest(request) {
-  const req = SignRequest.decode(request)
+  const runner = SignRequest.decode(request)
   const reqStr = z32.encode(request)
-  const reqMsg = { key: req.id, length: req.length, treeHash: idEnc.normalize(req.treeHash) }
+  const reqMsg = { key: runner.id, length: runner.length, treeHash: idEnc.normalize(runner.treeHash) }
   console.log('Request:', JSON.stringify(reqMsg, null, 2))
   console.log('To sign, run:', `\nhypercore-sign ${reqStr}`)
 }
