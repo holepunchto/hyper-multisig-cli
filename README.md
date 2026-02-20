@@ -158,7 +158,7 @@ Waiting for remote seeders to pick up the changes...
 Please add this key to the seeders now. The logs here will notify you when it is picked up by them. Do not shut down until that happens.
 ```
 
-Do as the logs instruct, and add target key to 2 or more seeders. For this example, simple run 2 more seeder scripts like above, but this time for the target key.
+Do as the logs instruct, and add your target key to 2 or more seeders. For this example, simple run 2 more seeder scripts like above, but this time for the target key.
 
 Once the program detects at least 2 seeders have fully downloaded the multisig drive, it will inform you it is done. Shut down with ctrl-c.
 
