@@ -21,7 +21,7 @@
     "bare-fs": "^4.5.4",
     "corestore": "^7.8.0",
     "graceful-goodbye": "^1.3.3",
-    "hyper-multisig": "^0.1.0",
+    "hyper-multisig": "^0.1.2",
     "hypercore-id-encoding": "^1.3.0",
     "hypercore-signing-request": "^4.0.2",
     "hyperdrive": "^13.2.1",

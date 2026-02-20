@@ -137,12 +137,12 @@ async function verifyCore() {
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
-  setupProgressLogs(runner, 'core')
+  setupProgressLogs(runner, 'core', firstCommit)
 
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
-  console.info(`Core key: ${res.result.destCore.key}`)
+  console.info(`Core key: ${res.result.destCore.key} is safe to commit`)
   goodbye.exit()
 }
 
@@ -165,7 +165,7 @@ async function commitCore() {
     quorum
   })
 
-  setupProgressLogs(runner, 'core')
+  setupProgressLogs(runner, 'core', firstCommit)
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result)
@@ -210,12 +210,12 @@ async function verifyDrive() {
     quorum
   })
 
-  setupProgressLogs(runner, 'drive')
+  setupProgressLogs(runner, 'drive', firstCommit)
 
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
-  console.info(`Drive key: ${res.result.db.destCore.key}`)
+  console.info(`Drive key: ${res.result.db.destCore.key} is safe to commit`)
   goodbye.exit()
 }
 
@@ -237,7 +237,7 @@ async function commitDrive() {
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
-  setupProgressLogs(runner, 'drive')
+  setupProgressLogs(runner, 'drive', firstCommit)
 
   const res = await runner.done()
 
@@ -245,9 +245,11 @@ async function commitDrive() {
   console.info(`Drive key: ${res.result.db.destCore.key}`)
 }
 
-function setupProgressLogs(req, name) {
-  req.on('verify-committable-start', () => {
-    console.log(`Verifying the ${name} is safe to commit...`)
+function setupProgressLogs(req, name, firstCommit) {
+  req.on('verify-committable-start', (srcKey, tgtKey) => {
+    console.log(
+      `Verifying the ${name} is safe to commit (source ${idEnc.normalize(srcKey)} to multisig target ${idEnc.normalize(tgtKey)})`
+    )
   })
   req.on('commit-start', () => {
     console.log(`Committing the ${name}...`)
@@ -255,6 +257,11 @@ function setupProgressLogs(req, name) {
   req.on('verify-committed-start', (key) => {
     console.log(`Committed the ${name} (key ${idEnc.normalize(key)})`)
     console.log('Waiting for remote seeders to pick up the changes...')
+    if (firstCommit) {
+      console.log(
+        'Please add this key to the seeders now. The logs here will notify you when it is picked up by them. Do not shut down until that happens.'
+      )
+    }
   })
 }
 
