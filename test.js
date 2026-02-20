@@ -30,8 +30,17 @@ test('core request and sign CLI flow', async (t) => {
 
   const tRequestCore = t.test('Request core CLI')
   tRequestCore.plan(2)
+  const tVerifyCore = t.test('Verify core CLI')
+  tVerifyCore.plan(4)
   const tCommitCore = t.test('Commit core CLI')
   tCommitCore.plan(1)
+
+  const tRequestCore2 = t.test('Request core 2 CLI')
+  tRequestCore2.plan(2)
+  const tVerifyCore2 = t.test('Verify core 2 CLI')
+  tVerifyCore2.plan(4)
+  const tCommitCore2 = t.test('Commit core 2 CLI')
+  tCommitCore2.plan(1)
 
   const srcCore = await setupCore(t, store, swarm)
 
@@ -54,47 +63,112 @@ test('core request and sign CLI flow', async (t) => {
   const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcCore.key), bootstrap }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
-  const requestCoreProc = spawn(process.execPath, [
-    EXECUTABLE,
-    '--config',
-    configLoc,
-    '--storage',
-    cliStorageDir,
-    'request-core',
-    srcCore.length
-  ])
-
-  // To avoid zombie processes in case there's an error
-  process.on('exit', () => {
-    requestCoreProc.kill('SIGKILL')
-  })
-  requestCoreProc.stderr.on('data', (d) => {
-    console.error(d.toString())
-    t.fail('There should be no stderr')
-  })
-
   let request = null
   {
-    const stdoutDec = new NewlineDecoder('utf-8')
-    requestCoreProc.stdout.on('data', (d) => {
-      if (DEBUG) console.log(d.toString())
+    const requestCoreProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request-core',
+      srcCore.length
+    ])
 
+    // To avoid zombie processes in case there's an error
+    process.on('exit', () => {
+      requestCoreProc.kill('SIGKILL')
+    })
+    requestCoreProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    {
+      const stdoutDec = new NewlineDecoder('utf-8')
+      requestCoreProc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+
+        for (const line of stdoutDec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequestCore.pass('sign request created')
+            request = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+    }
+
+    requestCoreProc.on('exit', (status) => {
+      tRequestCore.is(status, 0, 'CLI proces exited cleanly')
+    })
+
+    await tRequestCore
+  }
+
+  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+
+  {
+    const verifyCoreProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'verify-core',
+      '--first-commit',
+      request,
+      ...responses
+    ])
+
+    process.on('exit', () => {
+      verifyCoreProc.kill('SIGKILL')
+    })
+    verifyCoreProc.stderr.on('data', (d) => {
+      console.log('the stderr is', d.toString())
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    let reviewLineStart = null
+    const reviewLines = []
+
+    const stdoutDec = new NewlineDecoder('utf-8')
+    verifyCoreProc.stdout.on('data', (d) => {
       for (const line of stdoutDec.push(d)) {
-        if (line.includes('hypercore-sign')) {
-          tRequestCore.pass('sign request created')
-          request = line.split('hypercore-sign ')[1]
+        if (line.includes('Quorum')) {
+          const quorum = parseInt(line.split('Quorum: ')[1].split(' / ')[0])
+          if (quorum === responses.length) {
+            tVerifyCore.pass('quorum matches number of responses')
+          }
+        }
+        if (line.includes('Review batch to commit:')) {
+          reviewLineStart = true
+        }
+        if (line.includes('Core key:')) {
+          reviewLineStart = false
+          tVerifyCore.pass('core key is printed')
+        }
+        if (reviewLineStart) {
+          reviewLines.push(line)
+        } else if (reviewLineStart === false) {
+          reviewLineStart = null
+          tVerifyCore.pass('review lines printed')
         }
       }
     })
+    verifyCoreProc.on('exit', (status) => {
+      tVerifyCore.pass('verify core process shuts down cleanly')
+    })
+
+    await tVerifyCore
+
+    reviewLines[0] = reviewLines[0].replace('Review batch to commit: ', '')
+    const review = JSON.parse(reviewLines.join('\n'))
+
+    t.is(review.destCore.length, 0, 'dest core has no new content')
+    t.is(review.srcCore.length, srcCore.length, 'src core info is correct')
+    t.is(review.batch.length, srcCore.length, 'batch has all entries from src core')
   }
-
-  requestCoreProc.on('exit', (status) => {
-    tRequestCore.is(status, 0, 'CLI proces exited cleanly')
-  })
-
-  await tRequestCore
-
-  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
 
   {
     const commitCoreProc = spawn(process.execPath, [
@@ -168,6 +242,118 @@ test('core request and sign CLI flow', async (t) => {
     await tShutdown
   }
 
+  await srcCore.append(b4a.from('content 3'))
+  await copy2.download({ start: 0, end: srcCore.length }).done()
+  await copy3.download({ start: 0, end: srcCore.length }).done()
+
+  // second request
+  let request2 = null
+  {
+    const requestCoreProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request-core',
+      srcCore.length
+    ])
+
+    // To avoid zombie processes in case there's an error
+    process.on('exit', () => {
+      requestCoreProc.kill('SIGKILL')
+    })
+    requestCoreProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    {
+      const stdoutDec = new NewlineDecoder('utf-8')
+      requestCoreProc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+
+        for (const line of stdoutDec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequestCore2.pass('sign request created')
+            request2 = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+    }
+
+    requestCoreProc.on('exit', (status) => {
+      tRequestCore2.is(status, 0, 'CLI proces exited cleanly')
+    })
+
+    await tRequestCore2
+  }
+
+  const responses2 = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+
+  // second verify
+  {
+    const verifyCoreProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'verify-core',
+      request2,
+      ...responses2
+    ])
+
+    process.on('exit', () => {
+      verifyCoreProc.kill('SIGKILL')
+    })
+    verifyCoreProc.stderr.on('data', (d) => {
+      console.log('the stderr is', d.toString())
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    let reviewLineStart = null
+    const reviewLines = []
+
+    const stdoutDec = new NewlineDecoder('utf-8')
+    verifyCoreProc.stdout.on('data', (d) => {
+      for (const line of stdoutDec.push(d)) {
+        if (line.includes('Quorum')) {
+          const quorum = parseInt(line.split('Quorum: ')[1].split(' / ')[0])
+          if (quorum === responses2.length) {
+            tVerifyCore2.pass('quorum matches number of responses')
+          }
+        }
+        if (line.includes('Review batch to commit:')) {
+          reviewLineStart = true
+        }
+        if (line.includes('Core key:')) {
+          reviewLineStart = false
+          tVerifyCore2.pass('core key is printed')
+        }
+        if (reviewLineStart) {
+          reviewLines.push(line)
+        } else if (reviewLineStart === false) {
+          reviewLineStart = null
+          tVerifyCore2.pass('review lines printed')
+        }
+      }
+    })
+    verifyCoreProc.on('exit', (status) => {
+      tVerifyCore2.pass('verify core process shuts down cleanly')
+    })
+
+    await tVerifyCore2
+
+    reviewLines[0] = reviewLines[0].replace('Review batch to commit: ', '')
+    const review = JSON.parse(reviewLines.join('\n'))
+
+    t.is(review.destCore.length, 3, 'dest core has new content')
+    t.is(review.srcCore.length, srcCore.length, 'src core info is correct')
+    t.is(review.batch.length, srcCore.length, 'batch has all entries from src core')
+  }
+
   // second commit
   {
     const commitCoreProc = spawn(process.execPath, [
@@ -177,8 +363,8 @@ test('core request and sign CLI flow', async (t) => {
       '--storage',
       cliStorageDir,
       'commit-core',
-      request,
-      ...responses
+      request2,
+      ...responses2
     ])
 
     process.on('exit', () => {
@@ -198,14 +384,14 @@ test('core request and sign CLI flow', async (t) => {
 
         for (const line of stdoutDec.push(d)) {
           if (line.includes('Core key:')) {
-            tCommitCore.pass('sign request committed')
+            tCommitCore2.pass('sign request committed')
             coreKey = line.split('Core key: ')[1]
           }
         }
       })
     }
 
-    await tCommitCore
+    await tCommitCore2
 
     const tShutdown = t.test('Shutdown logic')
     tShutdown.plan(1)
@@ -217,7 +403,7 @@ test('core request and sign CLI flow', async (t) => {
   }
 })
 
-test('drive request and sign CLI flow', async (t) => {
+test.solo('drive request and sign CLI flow', async (t) => {
   const { bootstrap, store, swarm, store2, swarm2, store3, swarm3, store4, swarm4 } = await setup(
     t,
     4
@@ -225,8 +411,17 @@ test('drive request and sign CLI flow', async (t) => {
 
   const tRequestDrive = t.test('Request core CLI')
   tRequestDrive.plan(2)
+  const tVerifyDrive = t.test('Verify core CLI')
+  tVerifyDrive.plan(4)
   const tCommitDrive = t.test('Commit core CLI')
   tCommitDrive.plan(1)
+
+  const tRequestDrive2 = t.test('Request drive 2 CLI')
+  tRequestDrive2.plan(2)
+  const tVerifyDrive2 = t.test('Verify drive 2 CLI')
+  tVerifyDrive2.plan(4)
+  const tCommitDrive2 = t.test('Commit drive 2 CLI')
+  tCommitDrive2.plan(1)
 
   const srcDrive = await setupDrive(t, store, swarm)
 
@@ -259,47 +454,120 @@ test('drive request and sign CLI flow', async (t) => {
   const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcDrive.key), bootstrap }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
-  const requestDriveProc = spawn(process.execPath, [
-    EXECUTABLE,
-    '--config',
-    configLoc,
-    '--storage',
-    cliStorageDir,
-    'request-drive',
-    srcDrive.core.length
-  ])
-
-  // To avoid zombie processes in case there's an error
-  process.on('exit', () => {
-    requestDriveProc.kill('SIGKILL')
-  })
-  requestDriveProc.stderr.on('data', (d) => {
-    console.error(d.toString())
-    t.fail('There should be no stderr')
-  })
-
   let request = null
   {
-    const stdoutDec = new NewlineDecoder('utf-8')
-    requestDriveProc.stdout.on('data', (d) => {
-      if (DEBUG) console.log(d.toString())
+    const requestDriveProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request-drive',
+      srcDrive.core.length
+    ])
 
+    // To avoid zombie processes in case there's an error
+    process.on('exit', () => {
+      requestDriveProc.kill('SIGKILL')
+    })
+    requestDriveProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    {
+      const stdoutDec = new NewlineDecoder('utf-8')
+      requestDriveProc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+
+        for (const line of stdoutDec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequestDrive.pass('sign request created')
+            request = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+    }
+
+    requestDriveProc.on('exit', (status) => {
+      tRequestDrive.is(status, 0, 'CLI proces exited cleanly')
+    })
+
+    await tRequestDrive
+  }
+
+  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+
+  {
+    const verifyDriveProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'verify-drive',
+      '--first-commit',
+      request,
+      ...responses
+    ])
+
+    process.on('exit', () => {
+      verifyDriveProc.kill('SIGKILL')
+    })
+    verifyDriveProc.stderr.on('data', (d) => {
+      console.log('the stderr is', d.toString())
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    let reviewLineStart = null
+    const reviewLines = []
+
+    const stdoutDec = new NewlineDecoder('utf-8')
+    verifyDriveProc.stdout.on('data', (d) => {
       for (const line of stdoutDec.push(d)) {
-        if (line.includes('hypercore-sign')) {
-          tRequestDrive.pass('sign request created')
-          request = line.split('hypercore-sign ')[1]
+        if (line.includes('Quorum')) {
+          const quorum = parseInt(line.split('Quorum: ')[1].split(' / ')[0])
+          if (quorum === responses.length) {
+            tVerifyDrive.pass('quorum matches number of responses')
+          }
+        }
+        if (line.includes('Review batch to commit:')) {
+          reviewLineStart = true
+        }
+        if (line.includes('Drive key:')) {
+          reviewLineStart = false
+          tVerifyDrive.pass('drive key is printed')
+        }
+        if (reviewLineStart) {
+          reviewLines.push(line)
+        } else if (reviewLineStart === false) {
+          reviewLineStart = null
+          tVerifyDrive.pass('review lines printed')
         }
       }
     })
+    verifyDriveProc.on('exit', (status) => {
+      tVerifyDrive.pass('verify drive process shuts down cleanly')
+    })
+
+    await tVerifyDrive
+
+    reviewLines[0] = reviewLines[0].replace('Review batch to commit: ', '')
+    const review = JSON.parse(reviewLines.join('\n'))
+
+    t.is(review.db.destCore.length, 0, 'dest core has no new content')
+    t.is(review.db.srcCore.length, srcDrive.db.core.length, 'src core info is correct')
+    t.is(review.db.batch.length, srcDrive.db.core.length, 'batch has all entries from src core')
+    t.is(review.blobs.destCore.length, 0, 'dest blobs has no new content')
+    t.is(review.blobs.srcCore.length, srcDrive.blobs.core.length, 'src blobs info is correct')
+    t.is(
+      review.blobs.batch.length,
+      srcDrive.blobs.core.length,
+      'batch has all entries from src blobs'
+    )
   }
 
-  requestDriveProc.on('exit', (status) => {
-    tRequestDrive.is(status, 0, 'CLI proces exited cleanly')
-  })
-
-  await tRequestDrive
-
-  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
   {
     const commitDriveProc = spawn(process.execPath, [
       EXECUTABLE,
@@ -387,6 +655,135 @@ test('drive request and sign CLI flow', async (t) => {
     await tShutdown
   }
 
+  await srcDrive.put('/file4', 'file4 content')
+  await copy2.getBlobs()
+  await copy2.db.core.download({ start: 0, end: srcDrive.version })
+  await copy2.blobs.core.download({
+    start: 0,
+    end: await srcDrive.getBlobsLength(srcDrive.version)
+  })
+  await copy3.getBlobs()
+  await copy3.db.core.download({ start: 0, end: srcDrive.version })
+  await copy3.blobs.core.download({
+    start: 0,
+    end: await srcDrive.getBlobsLength(srcDrive.version)
+  })
+
+  // second request
+  let request2 = null
+  {
+    const requestDriveProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request-drive',
+      srcDrive.core.length
+    ])
+
+    // To avoid zombie processes in case there's an error
+    process.on('exit', () => {
+      requestDriveProc.kill('SIGKILL')
+    })
+    requestDriveProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    {
+      const stdoutDec = new NewlineDecoder('utf-8')
+      requestDriveProc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+
+        for (const line of stdoutDec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequestDrive2.pass('sign request created')
+            request2 = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+    }
+
+    requestDriveProc.on('exit', (status) => {
+      tRequestDrive2.is(status, 0, 'CLI proces exited cleanly')
+    })
+
+    await tRequestDrive2
+  }
+
+  const responses2 = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+
+  // second verify
+  {
+    const verifyDriveProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'verify-drive',
+      request2,
+      ...responses2
+    ])
+
+    process.on('exit', () => {
+      verifyDriveProc.kill('SIGKILL')
+    })
+    verifyDriveProc.stderr.on('data', (d) => {
+      console.log('the stderr is', d.toString())
+      console.error(d.toString())
+      t.fail('There should be no stderr')
+    })
+
+    let reviewLineStart = null
+    const reviewLines = []
+
+    const stdoutDec = new NewlineDecoder('utf-8')
+    verifyDriveProc.stdout.on('data', (d) => {
+      for (const line of stdoutDec.push(d)) {
+        if (line.includes('Quorum')) {
+          const quorum = parseInt(line.split('Quorum: ')[1].split(' / ')[0])
+          if (quorum === responses.length) {
+            tVerifyDrive2.pass('quorum matches number of responses')
+          }
+        }
+        if (line.includes('Review batch to commit:')) {
+          reviewLineStart = true
+        }
+        if (line.includes('Drive key:')) {
+          reviewLineStart = false
+          tVerifyDrive2.pass('drive key is printed')
+        }
+        if (reviewLineStart) {
+          reviewLines.push(line)
+        } else if (reviewLineStart === false) {
+          reviewLineStart = null
+          tVerifyDrive2.pass('review lines printed')
+        }
+      }
+    })
+    verifyDriveProc.on('exit', (status) => {
+      tVerifyDrive2.pass('verify drive process shuts down cleanly')
+    })
+
+    await tVerifyDrive2
+
+    reviewLines[0] = reviewLines[0].replace('Review batch to commit: ', '')
+    const review = JSON.parse(reviewLines.join('\n'))
+
+    t.is(review.db.destCore.length, 4, 'dest core has no new content')
+    t.is(review.db.srcCore.length, srcDrive.db.core.length, 'src core info is correct')
+    t.is(review.db.batch.length, srcDrive.db.core.length, 'batch has all entries from src core')
+    t.is(review.blobs.destCore.length, 3, 'dest blobs has no new content')
+    t.is(review.blobs.srcCore.length, srcDrive.blobs.core.length, 'src blobs info is correct')
+    t.is(
+      review.blobs.batch.length,
+      srcDrive.blobs.core.length,
+      'batch has all entries from src blobs'
+    )
+  }
+
   // second commit
   {
     const commitDriveProc = spawn(process.execPath, [
@@ -396,8 +793,8 @@ test('drive request and sign CLI flow', async (t) => {
       '--storage',
       cliStorageDir,
       'commit-drive',
-      request,
-      ...responses
+      request2,
+      ...responses2
     ])
 
     process.on('exit', () => {
@@ -417,14 +814,14 @@ test('drive request and sign CLI flow', async (t) => {
 
         for (const line of stdoutDec.push(d)) {
           if (line.includes('Drive key:')) {
-            tCommitDrive.pass('sign request committed')
+            tCommitDrive2.pass('sign request committed')
             driveKey = line.split('Drive key: ')[1]
           }
         }
       })
     }
 
-    await tCommitDrive
+    await tCommitDrive2
 
     const tShutdown = t.test('Shutdown logic')
     tShutdown.plan(1)

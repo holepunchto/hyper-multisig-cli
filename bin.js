@@ -25,6 +25,7 @@ const cmdRequestCore = command(
 const cmdVerifyCore = command(
   'verify-core',
   description('Verify multisig'),
+  flag('--first-commit', 'First commit'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
@@ -54,6 +55,7 @@ const cmdRequestDrive = command(
 const cmdVerifyDrive = command(
   'verify-drive',
   description('Verify multisig'),
+  flag('--first-commit', 'First commit'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
@@ -106,7 +108,7 @@ async function requestCore() {
 }
 
 async function verifyCore() {
-  const { peerUpdateTimeout } = cmdVerifyCore.flags
+  const { firstCommit, peerUpdateTimeout } = cmdVerifyCore.flags
   const request = cmdVerifyCore.args.request
   const responses = cmdVerifyCore.rest || []
   if (!request) throw new Error('Invalid command')
@@ -119,6 +121,7 @@ async function verifyCore() {
   const multisig = new Multisig(store, swarm)
   const runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
     dryRun: true,
+    skipTargetChecks: firstCommit,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
@@ -178,7 +181,7 @@ async function requestDrive() {
 }
 
 async function verifyDrive() {
-  const { peerUpdateTimeout } = cmdVerifyCore.flags
+  const { firstCommit, peerUpdateTimeout } = cmdVerifyDrive.flags
   const request = cmdVerifyDrive.args.request
   const responses = cmdVerifyDrive.rest || []
   if (!request) throw new Error('Invalid command')
@@ -190,6 +193,7 @@ async function verifyDrive() {
   const multisig = new Multisig(store, swarm)
   const runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
     dryRun: true,
+    skipTargetChecks: firstCommit,
     peerUpdateTimeout: peerUpdateTimeout,
     quorum
   })
@@ -256,7 +260,7 @@ function printRequest(request) {
 
 function printCommit(manifest, quorum, result, dryRun) {
   if (dryRun) {
-    console.log(`\nQuorum ${quorum} / ${manifest.quorum}`)
+    console.log(`\nQuorum: ${quorum} / ${manifest.quorum}`)
     console.log('\nReview batch to commit:', JSON.stringify(result, null, 2))
   } else {
     console.log('\nCommitted:', JSON.stringify(result, null, 2))
