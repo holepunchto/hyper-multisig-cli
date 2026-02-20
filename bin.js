@@ -245,7 +245,11 @@ function setupProgressLogs(req, name) {
 function printRequest(request) {
   const runner = SignRequest.decode(request)
   const reqStr = z32.encode(request)
-  const reqMsg = { key: runner.id, length: runner.length, treeHash: idEnc.normalize(runner.treeHash) }
+  const reqMsg = {
+    key: runner.id,
+    length: runner.length,
+    treeHash: idEnc.normalize(runner.treeHash)
+  }
   console.log('Request:', JSON.stringify(reqMsg, null, 2))
   console.log('To sign, run:', `\nhypercore-sign ${reqStr}`)
 }
