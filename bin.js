@@ -106,6 +106,9 @@ async function requestCore() {
 
   const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const srcCore = store.get({ key: idEnc.decode(srcKey) })
+
+  console.info(`Creating a signing request for hypercore ${srcCore.id} at length ${length}...`)
+  console.info('Please ensure this hypercore is seeded') // TODO: reactively based on error instead of always logging
   const multisig = new Multisig(store, swarm)
   const res = await multisig
     .requestCore(publicKeys, namespace, srcCore, length, {
