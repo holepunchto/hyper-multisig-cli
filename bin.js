@@ -10,7 +10,7 @@ const Hyperswarm = require('hyperswarm')
 const { command, flag, arg, rest, description } = require('paparam')
 const z32 = require('z32')
 
-const DEFAULT_CONFIG_PATH = './config.json'
+const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
 
 const cmdRequestCore = command(

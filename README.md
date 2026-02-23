@@ -62,7 +62,7 @@ Keep this process running, because we will need to download this hypercore to be
 
 ### Create Config
 
-Create `config.json` in your current directory
+Create `multisig.json` in your current directory
 
 ```json
 {
