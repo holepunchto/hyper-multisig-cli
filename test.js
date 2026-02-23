@@ -58,7 +58,7 @@ test('core request and sign CLI flow', async (t) => {
 
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
-  const configLoc = path.join(dir, 'config.json')
+  const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
   const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcCore.key), bootstrap }
   await fs.writeFile(configLoc, JSON.stringify(config))
@@ -449,7 +449,7 @@ test('drive request and sign CLI flow', async (t) => {
 
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
-  const configLoc = path.join(dir, 'config.json')
+  const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
   const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcDrive.key), bootstrap }
   await fs.writeFile(configLoc, JSON.stringify(config))

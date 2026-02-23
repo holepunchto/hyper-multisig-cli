@@ -22,7 +22,7 @@ hyper-multisig-bare --help
 
 Use [hypercore-sign](https://github.com/holepunchto/hypercore-sign) to create public keys
 
-Create `config.json`
+Create `multisig.json`
 
 ```json
 {

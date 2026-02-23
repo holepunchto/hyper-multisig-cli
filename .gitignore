@@ -1,5 +1,5 @@
 node_modules
 coverage
 storage
-config.json
+multisig.json
 package-lock.json
