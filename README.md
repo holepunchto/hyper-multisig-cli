@@ -141,8 +141,6 @@ Replace `yebob...` with your own signing request, and `yeqmm` with your own resp
 hyper-multisig verify-core --first-commit yebob... yeqmm...
 ```
 
-
-
 You should see the confirmation that the core is safe to commit.
 
 ### Commit Request
