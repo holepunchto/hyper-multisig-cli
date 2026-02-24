@@ -8,10 +8,12 @@ Includes sanity checks to avoid common mistakes and risky releases, like detecti
 
 Uses [hyper-multisig](https://github.com/holepunchto/hyper-multisig) under the hood.
 
+Supports both Node.js and Bare.
+
 ## Installation
 
 ```shell
-npm i -g hyper-multisig-cli@latest
+npm i -g hyper-multisig-cli
 ```
 
 ## Usage
@@ -67,6 +69,7 @@ Create `multisig.json` in your current directory
 ```json
 {
   "publicKeys": ["paste-here-the-key-generated-by-hypercore-sign-generate-keys"],
+  "quorum": 1,
   "namespace": "dummy-test-core",
   "srcKey": "paste-here-the-key-of-your-source-core"
 }
@@ -79,7 +82,7 @@ It is possible to switch to a different `srcKey`.
 ### Create Signing Request
 
 ```shell
-hyper-multisig request-core 3 --first-commit
+hyper-multisig request-core 3
 ```
 
 You should see an error that the source core is not well seeded. It errors because committing any requests in this situation is dangerous.
@@ -93,7 +96,7 @@ import IdEnc from 'hypercore-id-encoding'
 
 const stringKey = '' // use the key of your source core
 
-const store = new Corestore('temp-example-seeder-store-${Math.random}')
+const store = new Corestore(`temp-example-seeder-store-${Math.round(Math.random() * 100000)}`)
 const key = IdEnc.decode(stringKey)
 const core = store.get({ key })
 await core.ready()
@@ -111,7 +114,7 @@ Note: in practice you would use a seeder service, like a [blind-peer](https://gi
 Now rerun the command:
 
 ```shell
-hyper-multisig request-core 3 --first-commit
+hyper-multisig request-core 3
 ```
 
 Take note of the signing request. It looks like this:
@@ -132,9 +135,13 @@ yeqmm...
 
 ### Verify Request
 
+Replace `yebob...` with your own signing request, and `yeqmm` with your own response. Then run:
+
 ```
-hyper-multisig verify-core --first-commit <the signing request> <your signing response>
+hyper-multisig verify-core --first-commit `yebob... yeqmm...
 ```
+
+
 
 You should see the confirmation that the core is safe to commit.
 
