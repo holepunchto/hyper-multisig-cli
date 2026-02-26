@@ -169,7 +169,7 @@ async function commit() {
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result)
-  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
+  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destCore.key
   console.info(`${type} key: ${destKey}`)
 }
 
