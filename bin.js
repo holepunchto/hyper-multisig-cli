@@ -129,7 +129,7 @@ async function verify() {
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
-  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
+  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destCore.key
   console.info(`${type} key: ${destKey} is safe to commit`)
   goodbye.exit()
 }
