@@ -105,7 +105,7 @@ test('core request and sign CLI flow', async (t) => {
     }
 
     requestCoreProc.on('exit', (status) => {
-      tRequestCore.is(status, 0, 'CLI proces exited cleanly')
+      tRequestCore.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestCore
@@ -289,7 +289,7 @@ test('core request and sign CLI flow', async (t) => {
     }
 
     requestCoreProc.on('exit', (status) => {
-      tRequestCore2.is(status, 0, 'CLI proces exited cleanly')
+      tRequestCore2.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestCore2
@@ -409,7 +409,7 @@ test('core request and sign CLI flow', async (t) => {
   }
 })
 
-test('drive request and sign CLI flow', async (t) => {
+test.solo('drive request and sign CLI flow', async (t) => {
   const { bootstrap, store, swarm, store2, swarm2, store3, swarm3, store4, swarm4 } = await setup(
     t,
     4
@@ -502,7 +502,7 @@ test('drive request and sign CLI flow', async (t) => {
     }
 
     requestDriveProc.on('exit', (status) => {
-      tRequestDrive.is(status, 0, 'CLI proces exited cleanly')
+      tRequestDrive.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestDrive
@@ -609,6 +609,7 @@ test('drive request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
+        console.log("🚀 ~ line:", line)
           if (line.includes('drive key:')) {
             tCommitDrive.pass('sign request committed')
             driveKey = line.split('drive key: ')[1]
@@ -718,7 +719,7 @@ test('drive request and sign CLI flow', async (t) => {
     }
 
     requestDriveProc.on('exit', (status) => {
-      tRequestDrive2.is(status, 0, 'CLI proces exited cleanly')
+      tRequestDrive2.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestDrive2
