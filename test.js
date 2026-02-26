@@ -609,7 +609,6 @@ test('drive request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-        console.log("🚀 ~ line:", line)
           if (line.includes('drive key:')) {
             tCommitDrive.pass('sign request committed')
             driveKey = line.split('drive key: ')[1]
@@ -691,7 +690,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-drive',
+      'request',
       srcDrive.core.length
     ])
 
@@ -735,7 +734,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-drive',
+      'verify',
       request2,
       ...responses2
     ])
@@ -805,7 +804,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-drive',
+      'commit',
       request2,
       ...responses2
     ])
