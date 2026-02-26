@@ -129,7 +129,8 @@ async function verify() {
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
-  console.info(`${type.toUpperCase()} Key: ${res.result.db.destCore.key} is safe to commit`)
+  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
+  console.info(`${type.toUpperCase()} Key: ${destKey} is safe to commit`)
   goodbye.exit()
 }
 
@@ -168,7 +169,8 @@ async function commit() {
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result)
-  console.info(`${type.toUpperCase()} key: ${res.result.db.destCore.key}`)
+  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
+  console.info(`${type.toUpperCase()} key: ${destKey}`)
 }
 
 function setupProgressLogs(req, name, firstCommit) {
