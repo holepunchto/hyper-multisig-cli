@@ -170,7 +170,7 @@ async function commit() {
 
   printCommit(res.manifest, res.quorum, res.result)
   const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
-  console.info(`${type()} key: ${destKey}`)
+  console.info(`${type} key: ${destKey}`)
 }
 
 function setupProgressLogs(req, name, firstCommit) {
