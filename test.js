@@ -60,7 +60,7 @@ test('core request and sign CLI flow', async (t) => {
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
-  const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcCore.key), bootstrap }
+  const config = { type: 'core', namespace, publicKeys, srcKey: idEnc.normalize(srcCore.key), bootstrap }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
   let request = null
@@ -71,7 +71,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-core',
+      'request',
       srcCore.length
     ])
 
@@ -114,7 +114,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-core',
+      'verify',
       '--first-commit',
       request,
       ...responses
@@ -177,7 +177,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-core',
+      'commit',
       '--first-commit',
       request,
       ...responses
@@ -255,7 +255,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-core',
+      'request',
       srcCore.length
     ])
 
@@ -299,7 +299,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-core',
+      'verify',
       request2,
       ...responses2
     ])
@@ -362,7 +362,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-core',
+      'commit',
       request2,
       ...responses2
     ])
@@ -409,11 +409,11 @@ test('drive request and sign CLI flow', async (t) => {
     4
   )
 
-  const tRequestDrive = t.test('Request core CLI')
+  const tRequestDrive = t.test('Request drive CLI')
   tRequestDrive.plan(2)
-  const tVerifyDrive = t.test('Verify core CLI')
+  const tVerifyDrive = t.test('Verify drive CLI')
   tVerifyDrive.plan(4)
-  const tCommitDrive = t.test('Commit core CLI')
+  const tCommitDrive = t.test('Commit drive CLI')
   tCommitDrive.plan(1)
 
   const tRequestDrive2 = t.test('Request drive 2 CLI')
@@ -451,7 +451,7 @@ test('drive request and sign CLI flow', async (t) => {
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
-  const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcDrive.key), bootstrap }
+  const config = { type: 'drive', namespace, publicKeys, srcKey: idEnc.normalize(srcDrive.key), bootstrap }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
   let request = null
@@ -462,7 +462,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-drive',
+      'request',
       srcDrive.core.length
     ])
 
@@ -505,7 +505,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-drive',
+      'verify',
       '--first-commit',
       request,
       ...responses
@@ -575,7 +575,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-drive',
+      'commit',
       '--first-commit',
       request,
       ...responses
