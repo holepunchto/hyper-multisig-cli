@@ -60,7 +60,13 @@ test('core request and sign CLI flow', async (t) => {
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
-  const config = { type: 'core', namespace, publicKeys, srcKey: idEnc.normalize(srcCore.key), bootstrap }
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcCore.key),
+    bootstrap
+  }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
   let request = null
@@ -144,7 +150,7 @@ test('core request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Core key:')) {
+        if (line.includes('core key:')) {
           reviewLineStart = false
           tVerifyCore.pass('core key is printed')
         }
@@ -199,9 +205,9 @@ test('core request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Core key:')) {
+          if (line.includes('core key:')) {
             tCommitCore.pass('sign request committed')
-            coreKey = line.split('Core key: ')[1]
+            coreKey = line.split('core key: ')[1]
           }
 
           if (line.includes('Committed the core (key')) {
@@ -328,7 +334,7 @@ test('core request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Core key:')) {
+        if (line.includes('core key:')) {
           reviewLineStart = false
           tVerifyCore2.pass('core key is printed')
         }
@@ -383,9 +389,9 @@ test('core request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Core key:')) {
+          if (line.includes('core key:')) {
             tCommitCore2.pass('sign request committed')
-            coreKey = line.split('Core key: ')[1]
+            coreKey = line.split('core key: ')[1]
           }
         }
       })
@@ -451,7 +457,13 @@ test('drive request and sign CLI flow', async (t) => {
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
-  const config = { type: 'drive', namespace, publicKeys, srcKey: idEnc.normalize(srcDrive.key), bootstrap }
+  const config = {
+    type: 'drive',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcDrive.key),
+    bootstrap
+  }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
   let request = null
@@ -535,7 +547,7 @@ test('drive request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Drive key:')) {
+        if (line.includes('drive key:')) {
           reviewLineStart = false
           tVerifyDrive.pass('drive key is printed')
         }
@@ -597,9 +609,9 @@ test('drive request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Drive key:')) {
+          if (line.includes('drive key:')) {
             tCommitDrive.pass('sign request committed')
-            driveKey = line.split('Drive key: ')[1]
+            driveKey = line.split('drive key: ')[1]
           }
 
           if (line.includes('Committed the drive (key')) {
@@ -751,7 +763,7 @@ test('drive request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Drive key:')) {
+        if (line.includes('drive key:')) {
           reviewLineStart = false
           tVerifyDrive2.pass('drive key is printed')
         }
@@ -813,9 +825,9 @@ test('drive request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Drive key:')) {
+          if (line.includes('drive key:')) {
             tCommitDrive2.pass('sign request committed')
-            driveKey = line.split('Drive key: ')[1]
+            driveKey = line.split('drive key: ')[1]
           }
         }
       })

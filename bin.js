@@ -130,7 +130,7 @@ async function verify() {
 
   printCommit(res.manifest, res.quorum, res.result, true)
   const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
-  console.info(`${type.toUpperCase()} Key: ${destKey} is safe to commit`)
+  console.info(`${type} key: ${destKey} is safe to commit`)
   goodbye.exit()
 }
 
@@ -170,7 +170,7 @@ async function commit() {
 
   printCommit(res.manifest, res.quorum, res.result)
   const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destDrive.key
-  console.info(`${type.toUpperCase()} key: ${destKey}`)
+  console.info(`${type()} key: ${destKey}`)
 }
 
 function setupProgressLogs(req, name, firstCommit) {
