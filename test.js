@@ -68,9 +68,9 @@ test('link', async (t) => {
     if (DEBUG) console.log(d.toString())
 
     for (const line of stdoutDec.push(d)) {
-      if (line.includes('core key:')) {
-        tLinkCore.pass('core key is printed')
-        coreKey = line.split('core key: ')[1]
+      if (line.includes('pear://')) {
+        tLinkCore.pass('link is printed')
+        coreKey = line.split('pear://')[1]
       }
     }
   })
