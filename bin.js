@@ -229,13 +229,15 @@ async function setup(opts = {}) {
   const configPath = cmd.flags.config || DEFAULT_CONFIG_PATH
   const storage = cmd.flags.storage || DEFAULT_STORAGE_PATH
 
+  const { withReplication = true } = opts
+
   const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(
     configPath,
     opts
   )
 
   let store, swarm
-  if (opts.withReplication) {
+  if (withReplication) {
     ;({ store, swarm } = await replication(storage, bootstrap))
   }
 
