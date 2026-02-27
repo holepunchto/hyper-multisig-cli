@@ -39,7 +39,6 @@ test('link', async (t) => {
     type: 'core',
     namespace,
     publicKeys,
-    srcKey: 'test',
     bootstrap
   }
   await fs.writeFile(configLoc, JSON.stringify(config))

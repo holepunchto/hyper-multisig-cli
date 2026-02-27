@@ -64,7 +64,7 @@ const cmd = command(
 )
 
 async function link() {
-  const { publicKeys, namespace } = await setup()
+  const { publicKeys, namespace } = await setup({ srcKeyRequired: false })
   const key = MultisigUtil.getCoreKey(publicKeys, namespace)
   console.info(`pear://${idEnc.normalize(key)}`)
   goodbye.exit()
@@ -226,11 +226,14 @@ function printCommit(manifest, quorum, result, dryRun) {
   }
 }
 
-async function setup() {
+async function setup(opts = {}) {
   const configPath = cmd.flags.config || DEFAULT_CONFIG_PATH
   const storage = cmd.flags.storage || DEFAULT_STORAGE_PATH
 
-  const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(configPath)
+  const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(
+    configPath,
+    opts
+  )
   const { store, swarm } = await replication(storage, bootstrap)
   return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
 }
@@ -238,7 +241,7 @@ async function setup() {
 /**
  * @type {function(): Promise<{ publicKeys: string[], namespace: string, srcKey: string }>}
  */
-async function loadConfig(configPath) {
+async function loadConfig(configPath, opts = {}) {
   const {
     type,
     publicKeys,
@@ -248,7 +251,14 @@ async function loadConfig(configPath) {
     quorum = null
   } = JSON.parse(await fs.readFile(configPath, 'utf-8'))
 
-  if (!(type === 'core' || type === 'drive') || !publicKeys?.length || !namespace || !srcKey) {
+  const { srcKeyRequired = true } = opts
+
+  if (
+    !(type === 'core' || type === 'drive') ||
+    !publicKeys?.length ||
+    !namespace ||
+    (srcKeyRequired && !srcKey)
+  ) {
     throw new Error('Invalid config file')
   }
 
