@@ -68,6 +68,7 @@ Create `multisig.json` in your current directory
 
 ```json
 {
+  "type": "core", // core or drive
   "publicKeys": ["paste-here-the-key-generated-by-hypercore-sign-generate-keys"],
   "quorum": 1,
   "namespace": "dummy-test-core",
@@ -82,7 +83,7 @@ It is possible to switch to a different `srcKey`.
 ### Create Signing Request
 
 ```shell
-hyper-multisig request-core 3
+hyper-multisig request 3
 ```
 
 You should see an error that the source core is not well seeded. It errors because committing any requests in this situation is dangerous.
@@ -114,7 +115,7 @@ Note: in practice you would use a seeder service, like a [blind-peer](https://gi
 Now rerun the command:
 
 ```shell
-hyper-multisig request-core 3
+hyper-multisig request 3
 ```
 
 Take note of the signing request. It looks like this:
@@ -138,17 +139,17 @@ yeqmm...
 Replace `yebob...` with your own signing request, and `yeqmm` with your own response. Then run:
 
 ```
-hyper-multisig verify-core --first-commit yebob... yeqmm...
+hyper-multisig verify --first-commit yebob... yeqmm...
 ```
 
 You should see the confirmation that the core is safe to commit.
 
 ### Commit Request
 
-Run the same command as above, but replace 'verify-core' with 'commit-core'.
+Run the same command as above, but replace 'verify' with 'commit'.
 
 ```
-hyper-multisig commit-core --first-commit <the signing request> <your signing response>
+hyper-multisig commit --first-commit <the signing request> <your signing response>
 ```
 
 You should see logs like

@@ -60,7 +60,13 @@ test('core request and sign CLI flow', async (t) => {
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
-  const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcCore.key), bootstrap }
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcCore.key),
+    bootstrap
+  }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
   let request = null
@@ -71,7 +77,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-core',
+      'request',
       srcCore.length
     ])
 
@@ -99,7 +105,7 @@ test('core request and sign CLI flow', async (t) => {
     }
 
     requestCoreProc.on('exit', (status) => {
-      tRequestCore.is(status, 0, 'CLI proces exited cleanly')
+      tRequestCore.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestCore
@@ -114,7 +120,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-core',
+      'verify',
       '--first-commit',
       request,
       ...responses
@@ -144,7 +150,7 @@ test('core request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Core key:')) {
+        if (line.includes('core key:')) {
           reviewLineStart = false
           tVerifyCore.pass('core key is printed')
         }
@@ -177,7 +183,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-core',
+      'commit',
       '--first-commit',
       request,
       ...responses
@@ -199,9 +205,9 @@ test('core request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Core key:')) {
+          if (line.includes('core key:')) {
             tCommitCore.pass('sign request committed')
-            coreKey = line.split('Core key: ')[1]
+            coreKey = line.split('core key: ')[1]
           }
 
           if (line.includes('Committed the core (key')) {
@@ -255,7 +261,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-core',
+      'request',
       srcCore.length
     ])
 
@@ -283,7 +289,7 @@ test('core request and sign CLI flow', async (t) => {
     }
 
     requestCoreProc.on('exit', (status) => {
-      tRequestCore2.is(status, 0, 'CLI proces exited cleanly')
+      tRequestCore2.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestCore2
@@ -299,7 +305,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-core',
+      'verify',
       request2,
       ...responses2
     ])
@@ -328,7 +334,7 @@ test('core request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Core key:')) {
+        if (line.includes('core key:')) {
           reviewLineStart = false
           tVerifyCore2.pass('core key is printed')
         }
@@ -362,7 +368,7 @@ test('core request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-core',
+      'commit',
       request2,
       ...responses2
     ])
@@ -383,9 +389,9 @@ test('core request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Core key:')) {
+          if (line.includes('core key:')) {
             tCommitCore2.pass('sign request committed')
-            coreKey = line.split('Core key: ')[1]
+            coreKey = line.split('core key: ')[1]
           }
         }
       })
@@ -409,11 +415,11 @@ test('drive request and sign CLI flow', async (t) => {
     4
   )
 
-  const tRequestDrive = t.test('Request core CLI')
+  const tRequestDrive = t.test('Request drive CLI')
   tRequestDrive.plan(2)
-  const tVerifyDrive = t.test('Verify core CLI')
+  const tVerifyDrive = t.test('Verify drive CLI')
   tVerifyDrive.plan(4)
-  const tCommitDrive = t.test('Commit core CLI')
+  const tCommitDrive = t.test('Commit drive CLI')
   tCommitDrive.plan(1)
 
   const tRequestDrive2 = t.test('Request drive 2 CLI')
@@ -451,7 +457,13 @@ test('drive request and sign CLI flow', async (t) => {
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
   const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
-  const config = { namespace, publicKeys, srcKey: idEnc.normalize(srcDrive.key), bootstrap }
+  const config = {
+    type: 'drive',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcDrive.key),
+    bootstrap
+  }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
   let request = null
@@ -462,7 +474,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-drive',
+      'request',
       srcDrive.core.length
     ])
 
@@ -490,7 +502,7 @@ test('drive request and sign CLI flow', async (t) => {
     }
 
     requestDriveProc.on('exit', (status) => {
-      tRequestDrive.is(status, 0, 'CLI proces exited cleanly')
+      tRequestDrive.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestDrive
@@ -505,7 +517,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-drive',
+      'verify',
       '--first-commit',
       request,
       ...responses
@@ -535,7 +547,7 @@ test('drive request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Drive key:')) {
+        if (line.includes('drive key:')) {
           reviewLineStart = false
           tVerifyDrive.pass('drive key is printed')
         }
@@ -575,7 +587,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-drive',
+      'commit',
       '--first-commit',
       request,
       ...responses
@@ -597,9 +609,9 @@ test('drive request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Drive key:')) {
+          if (line.includes('drive key:')) {
             tCommitDrive.pass('sign request committed')
-            driveKey = line.split('Drive key: ')[1]
+            driveKey = line.split('drive key: ')[1]
           }
 
           if (line.includes('Committed the drive (key')) {
@@ -678,7 +690,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'request-drive',
+      'request',
       srcDrive.core.length
     ])
 
@@ -706,7 +718,7 @@ test('drive request and sign CLI flow', async (t) => {
     }
 
     requestDriveProc.on('exit', (status) => {
-      tRequestDrive2.is(status, 0, 'CLI proces exited cleanly')
+      tRequestDrive2.is(status, 0, 'CLI process exited cleanly')
     })
 
     await tRequestDrive2
@@ -722,7 +734,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'verify-drive',
+      'verify',
       request2,
       ...responses2
     ])
@@ -751,7 +763,7 @@ test('drive request and sign CLI flow', async (t) => {
         if (line.includes('Review batch to commit:')) {
           reviewLineStart = true
         }
-        if (line.includes('Drive key:')) {
+        if (line.includes('drive key:')) {
           reviewLineStart = false
           tVerifyDrive2.pass('drive key is printed')
         }
@@ -792,7 +804,7 @@ test('drive request and sign CLI flow', async (t) => {
       configLoc,
       '--storage',
       cliStorageDir,
-      'commit-drive',
+      'commit',
       request2,
       ...responses2
     ])
@@ -813,9 +825,9 @@ test('drive request and sign CLI flow', async (t) => {
         if (DEBUG) console.log(d.toString())
 
         for (const line of stdoutDec.push(d)) {
-          if (line.includes('Drive key:')) {
+          if (line.includes('drive key:')) {
             tCommitDrive2.pass('sign request committed')
-            driveKey = line.split('Drive key: ')[1]
+            driveKey = line.split('drive key: ')[1]
           }
         }
       })

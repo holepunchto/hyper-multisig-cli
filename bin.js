@@ -13,17 +13,17 @@ const z32 = require('z32')
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
 
-const cmdRequestCore = command(
-  'request-core',
+const cmdRequest = command(
+  'request',
   description('Create signing request'),
   flag('--force', 'Skip sanity checks'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('<length>', 'Core length to request'),
-  requestCore
+  request
 )
 
-const cmdVerifyCore = command(
-  'verify-core',
+const cmdVerify = command(
+  'verify',
   description('Verify multisig'),
   flag(
     '--first-commit',
@@ -32,11 +32,11 @@ const cmdVerifyCore = command(
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
-  verifyCore
+  verify
 )
 
-const cmdCommitCore = command(
-  'commit-core',
+const cmdCommit = command(
+  'commit',
   description('Commit multisig'),
   flag(
     '--first-commit',
@@ -46,206 +46,131 @@ const cmdCommitCore = command(
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
-  commitCore
-)
-
-const cmdRequestDrive = command(
-  'request-drive',
-  description('Create signing request'),
-  flag('--force', 'Skip sanity checks'),
-  flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
-  arg('<length>', 'Drive length to request'),
-  requestDrive
-)
-
-const cmdVerifyDrive = command(
-  'verify-drive',
-  description('Verify multisig'),
-  flag(
-    '--first-commit',
-    'Set when this is the first commit to the multisig target, so it skips those checks'
-  ),
-  flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
-  arg('request', 'Signing request'),
-  rest('[...responses]', 'Signing responses'),
-  verifyDrive
-)
-
-const cmdCommitDrive = command(
-  'commit-drive',
-  description('Commit multisig'),
-  flag(
-    '--first-commit',
-    'Set when this is the first commit to the multisig target, so it skips those checks'
-  ),
-  flag('--force-dangerous', 'Advanced option, it might break the drive on misuse'),
-  flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
-  arg('request', 'Signing request'),
-  rest('[...responses]', 'Signing responses'),
-  commitDrive
+  commit
 )
 
 const cmd = command(
   'multisig',
   flag('--config|-c <config>', `Config file path (default to ${DEFAULT_CONFIG_PATH})`),
   flag('--storage|-s <storage>', `Storage path (default to ${DEFAULT_STORAGE_PATH})`),
-  cmdRequestCore,
-  cmdVerifyCore,
-  cmdCommitCore,
-  cmdRequestDrive,
-  cmdVerifyDrive,
-  cmdCommitDrive,
+  cmdRequest,
+  cmdVerify,
+  cmdCommit,
   () => console.log(cmd.help())
 )
 
-async function requestCore() {
-  const length = +cmdRequestCore.args.length
-  const { force, peerUpdateTimeout } = cmdRequestCore.flags
-
+async function request() {
+  const length = +cmdRequest.args.length
+  const { force, peerUpdateTimeout } = cmdRequest.flags
   if (!length) throw new Error('Invalid command')
 
-  const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const srcCore = store.get({ key: idEnc.decode(srcKey) })
+  const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
 
-  console.info(`Creating a signing request for hypercore ${srcCore.id} at length ${length}...`)
-  console.info('Please ensure this hypercore is seeded') // TODO: reactively based on error instead of always logging
   const multisig = new Multisig(store, swarm)
-  const res = await multisig
-    .requestCore(publicKeys, namespace, srcCore, length, {
-      force,
-      peerUpdateTimeout: peerUpdateTimeout,
-      quorum
-    })
-    .done()
 
-  printRequest(res.request)
+  let request
+  if (type === 'core') {
+    const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    const res = await multisig
+      .requestCore(publicKeys, namespace, srcCore, length, {
+        force,
+        peerUpdateTimeout: peerUpdateTimeout,
+        quorum
+      })
+      .done()
+    request = res.request
+  } else {
+    const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    const res = await multisig
+      .requestDrive(publicKeys, namespace, srcDrive, length, {
+        force,
+        peerUpdateTimeout: peerUpdateTimeout,
+        quorum
+      })
+      .done()
+    request = res.request
+  }
+  printRequest(request)
+
   goodbye.exit()
 }
 
-async function verifyCore() {
-  const { firstCommit, peerUpdateTimeout } = cmdVerifyCore.flags
-  const request = cmdVerifyCore.args.request
-  const responses = cmdVerifyCore.rest || []
-  if (!request) throw new Error('Invalid command')
-
-  console.info(`Verifying request ${request}`)
-  console.info(`Responses:\n -${responses.join('\n -')}`)
-
-  const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const srcCore = store.get({ key: idEnc.decode(srcKey) })
-  const multisig = new Multisig(store, swarm)
-  const runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
-    dryRun: true,
-    skipTargetChecks: firstCommit,
-    peerUpdateTimeout: peerUpdateTimeout,
-    quorum
-  })
-  setupProgressLogs(runner, 'core', firstCommit)
-
-  const res = await runner.done()
-
-  printCommit(res.manifest, res.quorum, res.result, true)
-  console.info(`Core key: ${res.result.destCore.key} is safe to commit`)
-  goodbye.exit()
-}
-
-async function commitCore() {
-  const request = cmdCommitCore.args.request
-  const responses = cmdCommitCore.rest || []
-  const { firstCommit, forceDangerous, peerUpdateTimeout } = cmdCommitCore.flags
-  if (!request || !responses.length) throw new Error('Invalid command')
-
-  console.info(`Committing request ${request}`)
-  console.info(`Responses:\n -${responses.join('\n -')}`)
-
-  const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const srcCore = store.get({ key: idEnc.decode(srcKey) })
-  const multisig = new Multisig(store, swarm)
-  const runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
-    skipTargetChecks: firstCommit,
-    force: forceDangerous,
-    peerUpdateTimeout: peerUpdateTimeout,
-    quorum
-  })
-
-  setupProgressLogs(runner, 'core', firstCommit)
-  const res = await runner.done()
-
-  printCommit(res.manifest, res.quorum, res.result)
-  console.info(`Core key: ${res.result.destCore.key}`)
-}
-
-async function requestDrive() {
-  const length = +cmdRequestDrive.args.length
-  const { force, peerUpdateTimeout } = cmdRequestDrive.flags
-  if (!length) throw new Error('Invalid command')
-
-  const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
-  const multisig = new Multisig(store, swarm)
-  const res = await multisig
-    .requestDrive(publicKeys, namespace, srcDrive, length, {
-      force,
-      peerUpdateTimeout: peerUpdateTimeout,
-      quorum
-    })
-    .done()
-
-  printRequest(res.request)
-  goodbye.exit()
-}
-
-async function verifyDrive() {
-  const { firstCommit, peerUpdateTimeout } = cmdVerifyDrive.flags
-  const request = cmdVerifyDrive.args.request
-  const responses = cmdVerifyDrive.rest || []
+async function verify() {
+  const { firstCommit, peerUpdateTimeout } = cmdVerify.flags
+  const request = cmdVerify.args.request
+  const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
   console.info(`Committing request ${request}`)
   console.info(`Responses:\n -${responses.join('\n -')}`)
 
-  const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+  const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const multisig = new Multisig(store, swarm)
-  const runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
-    dryRun: true,
-    skipTargetChecks: firstCommit,
-    peerUpdateTimeout: peerUpdateTimeout,
-    quorum
-  })
 
-  setupProgressLogs(runner, 'drive', firstCommit)
+  let runner
+  if (type === 'core') {
+    const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+      dryRun: true,
+      skipTargetChecks: firstCommit,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+  } else {
+    const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+      dryRun: true,
+      skipTargetChecks: firstCommit,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+  }
+  setupProgressLogs(runner, type, firstCommit)
 
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result, true)
-  console.info(`Drive key: ${res.result.db.destCore.key} is safe to commit`)
+  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destCore.key
+  console.info(`${type} key: ${destKey} is safe to commit`)
   goodbye.exit()
 }
 
-async function commitDrive() {
-  const request = cmdCommitDrive.args.request
-  const responses = cmdCommitDrive.rest || []
-  const { firstCommit, forceDangerous, peerUpdateTimeout } = cmdCommitDrive.flags
+async function commit() {
+  const request = cmdCommit.args.request
+  const responses = cmdCommit.rest || []
+  const { firstCommit, forceDangerous, peerUpdateTimeout } = cmdCommit.flags
   if (!request || !responses?.length) throw new Error('Invalid command')
 
   console.info(`Committing request ${request}`)
   console.info(`Responses:\n -${responses.join('\n -')}`)
 
-  const { publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+  const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const multisig = new Multisig(store, swarm)
-  const runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
-    skipTargetChecks: firstCommit,
-    force: forceDangerous,
-    peerUpdateTimeout: peerUpdateTimeout,
-    quorum
-  })
-  setupProgressLogs(runner, 'drive', firstCommit)
+
+  let runner
+  if (type === 'core') {
+    const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+      skipTargetChecks: firstCommit,
+      force: forceDangerous,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+  } else {
+    const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+      skipTargetChecks: firstCommit,
+      force: forceDangerous,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+  }
+  setupProgressLogs(runner, type, firstCommit)
 
   const res = await runner.done()
 
   printCommit(res.manifest, res.quorum, res.result)
-  console.info(`Drive key: ${res.result.db.destCore.key}`)
+  const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destCore.key
+  console.info(`${type} key: ${destKey}`)
 }
 
 function setupProgressLogs(req, name, firstCommit) {
@@ -294,9 +219,9 @@ async function setup() {
   const configPath = cmd.flags.config || DEFAULT_CONFIG_PATH
   const storage = cmd.flags.storage || DEFAULT_STORAGE_PATH
 
-  const { publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(configPath)
+  const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(configPath)
   const { store, swarm } = await replication(storage, bootstrap)
-  return { publicKeys, namespace, srcKey, quorum, store, swarm }
+  return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
 }
 
 /**
@@ -304,6 +229,7 @@ async function setup() {
  */
 async function loadConfig(configPath) {
   const {
+    type,
     publicKeys,
     namespace,
     srcKey,
@@ -311,12 +237,12 @@ async function loadConfig(configPath) {
     quorum = null
   } = JSON.parse(await fs.readFile(configPath, 'utf-8'))
 
-  if (!publicKeys?.length || !namespace || !srcKey) {
+  if (!(type === 'core' || type === 'drive') || !publicKeys?.length || !namespace || !srcKey) {
     throw new Error('Invalid config file')
   }
 
   if (bootstrap) console.info(`Using non-default bootstrap`)
-  return { publicKeys, namespace, srcKey, bootstrap, quorum }
+  return { type, publicKeys, namespace, srcKey, bootstrap, quorum }
 }
 
 /**
