@@ -79,7 +79,7 @@ async function request() {
       })
       .done()
     request = res.request
-  } else if (type === 'drive') {
+  } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     const res = await multisig
       .requestDrive(publicKeys, namespace, srcDrive, length, {
@@ -115,7 +115,7 @@ async function verify() {
       peerUpdateTimeout: peerUpdateTimeout,
       quorum
     })
-  } else if (type === 'drive') {
+  } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       dryRun: true,
@@ -155,7 +155,7 @@ async function commit() {
       peerUpdateTimeout: peerUpdateTimeout,
       quorum
     })
-  } else if (type === 'drive') {
+  } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       skipTargetChecks: firstCommit,
@@ -229,7 +229,7 @@ async function setup() {
  */
 async function loadConfig(configPath) {
   const {
-    type = 'core',
+    type,
     publicKeys,
     namespace,
     srcKey,
@@ -237,7 +237,7 @@ async function loadConfig(configPath) {
     quorum = null
   } = JSON.parse(await fs.readFile(configPath, 'utf-8'))
 
-  if (!publicKeys?.length || !namespace || !srcKey) {
+  if (!(type === 'core' || type === 'drive') || !publicKeys?.length || !namespace || !srcKey) {
     throw new Error('Invalid config file')
   }
 
