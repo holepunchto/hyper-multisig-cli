@@ -64,10 +64,9 @@ const cmd = command(
 )
 
 async function link() {
-  const { publicKeys, namespace } = await setup({ srcKeyRequired: false })
+  const { publicKeys, namespace } = await setup({ withReplication: false, srcKeyRequired: false })
   const key = MultisigUtil.getCoreKey(publicKeys, namespace)
   console.info(`pear://${idEnc.normalize(key)}`)
-  goodbye.exit()
 }
 
 async function request() {
@@ -234,7 +233,12 @@ async function setup(opts = {}) {
     configPath,
     opts
   )
-  const { store, swarm } = await replication(storage, bootstrap)
+
+  let store, swarm
+  if (opts.withReplication) {
+    ;({ store, swarm } = await replication(storage, bootstrap))
+  }
+
   return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
 }
 
