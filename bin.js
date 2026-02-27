@@ -3,6 +3,7 @@ const Corestore = require('corestore')
 const fs = require('fs').promises
 const goodbye = require('graceful-goodbye')
 const Multisig = require('hyper-multisig')
+const MultisigUtil = require('hyper-multisig/lib/util')
 const idEnc = require('hypercore-id-encoding')
 const SignRequest = require('hypercore-signing-request')
 const Hyperdrive = require('hyperdrive')
@@ -12,6 +13,8 @@ const z32 = require('z32')
 
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
+
+const cmdLink = command('link', description('Create multisig key'), link)
 
 const cmdRequest = command(
   'request',
@@ -53,11 +56,19 @@ const cmd = command(
   'multisig',
   flag('--config|-c <config>', `Config file path (default to ${DEFAULT_CONFIG_PATH})`),
   flag('--storage|-s <storage>', `Storage path (default to ${DEFAULT_STORAGE_PATH})`),
+  cmdLink,
   cmdRequest,
   cmdVerify,
   cmdCommit,
   () => console.log(cmd.help())
 )
+
+async function link() {
+  const { type, publicKeys, namespace } = await setup()
+  const key = MultisigUtil.getCoreKey(publicKeys, namespace)
+  console.info(`${type} key: ${idEnc.normalize(key)}`)
+  goodbye.exit()
+}
 
 async function request() {
   const length = +cmdRequest.args.length
