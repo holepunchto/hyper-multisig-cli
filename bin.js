@@ -238,7 +238,9 @@ async function setup(opts = {}) {
 
   let store, swarm
   if (withReplication) {
-    ;({ store, swarm } = await replication(storage, bootstrap))
+    const res = await replication(storage, bootstrap)
+    store = res.store
+    swarm = res.swarm
   }
 
   return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
