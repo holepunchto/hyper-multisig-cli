@@ -64,10 +64,9 @@ const cmd = command(
 )
 
 async function link() {
-  const { publicKeys, namespace } = await setup({ srcKeyRequired: false })
+  const { publicKeys, namespace } = await setup({ withReplication: false, srcKeyRequired: false })
   const key = MultisigUtil.getCoreKey(publicKeys, namespace)
   console.info(`pear://${idEnc.normalize(key)}`)
-  goodbye.exit()
 }
 
 async function request() {
@@ -230,11 +229,20 @@ async function setup(opts = {}) {
   const configPath = cmd.flags.config || DEFAULT_CONFIG_PATH
   const storage = cmd.flags.storage || DEFAULT_STORAGE_PATH
 
+  const { withReplication = true } = opts
+
   const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(
     configPath,
     opts
   )
-  const { store, swarm } = await replication(storage, bootstrap)
+
+  let store, swarm
+  if (withReplication) {
+    const res = await replication(storage, bootstrap)
+    store = res.store
+    swarm = res.swarm
+  }
+
   return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
 }
 

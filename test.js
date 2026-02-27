@@ -24,8 +24,6 @@ const DEBUG = false
 const EXECUTABLE = path.join(__dirname, isBare ? 'bin-bare.js' : 'bin.js')
 
 test('link', async (t) => {
-  const { bootstrap } = await setup(t)
-
   const tLinkCore = t.test('Link core CLI')
   tLinkCore.plan(2)
 
@@ -38,8 +36,7 @@ test('link', async (t) => {
   const config = {
     type: 'core',
     namespace,
-    publicKeys,
-    bootstrap
+    publicKeys
   }
   await fs.writeFile(configLoc, JSON.stringify(config))
 
