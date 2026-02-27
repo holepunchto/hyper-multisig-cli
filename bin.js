@@ -64,7 +64,7 @@ const cmd = command(
 )
 
 async function link() {
-  const { type, publicKeys, namespace } = await setup()
+  const { publicKeys, namespace } = await setup()
   const key = MultisigUtil.getCoreKey(publicKeys, namespace)
   console.info(`pear://${idEnc.normalize(key)}`)
   goodbye.exit()
