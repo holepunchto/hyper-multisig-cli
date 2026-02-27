@@ -14,6 +14,7 @@ const SignSecure = require('hypercore-sign/lib/secure')
 const SignRequest = require('hypercore-signing-request')
 const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
+const MultisigUtil = require('hyper-multisig/lib/util')
 const NewlineDecoder = require('newline-decoder')
 const sodium = require('sodium-native')
 const { isBare } = require('which-runtime')
@@ -21,6 +22,70 @@ const z32 = require('z32')
 
 const DEBUG = false
 const EXECUTABLE = path.join(__dirname, isBare ? 'bin-bare.js' : 'bin.js')
+
+test('link', async (t) => {
+  const { bootstrap } = await setup(t)
+
+  const tLinkCore = t.test('Link core CLI')
+  tLinkCore.plan(2)
+
+  const dir = await t.tmp()
+
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const { namespace, publicKeys } = setupMultisig(undefined, 3)
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    bootstrap
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  const linkProc = spawn(process.execPath, [
+    EXECUTABLE,
+    '--config',
+    configLoc,
+    '--storage',
+    cliStorageDir,
+    'link'
+  ])
+
+  // To avoid zombie processes in case there's an error
+  process.on('exit', () => {
+    linkProc.kill('SIGKILL')
+  })
+  linkProc.stderr.on('data', (d) => {
+    console.error(d.toString())
+    t.fail('There should be no stderr')
+  })
+
+  let coreKey = null
+  const stdoutDec = new NewlineDecoder('utf-8')
+  linkProc.stdout.on('data', (d) => {
+    if (DEBUG) console.log(d.toString())
+
+    for (const line of stdoutDec.push(d)) {
+      if (line.includes('pear://')) {
+        tLinkCore.pass('link is printed')
+        coreKey = line.split('pear://')[1]
+      }
+    }
+  })
+
+  linkProc.on('exit', (status) => {
+    tLinkCore.is(status, 0, 'CLI process exited cleanly')
+  })
+
+  await tLinkCore
+
+  t.is(
+    coreKey,
+    idEnc.normalize(MultisigUtil.getCoreKey(publicKeys, namespace)),
+    'core key is correct'
+  )
+})
 
 test('core request and sign CLI flow', async (t) => {
   const { bootstrap, store, swarm, store2, swarm2, store3, swarm3, store4, swarm4 } = await setup(

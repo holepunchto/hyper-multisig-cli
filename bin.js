@@ -3,6 +3,7 @@ const Corestore = require('corestore')
 const fs = require('fs').promises
 const goodbye = require('graceful-goodbye')
 const Multisig = require('hyper-multisig')
+const MultisigUtil = require('hyper-multisig/lib/util')
 const idEnc = require('hypercore-id-encoding')
 const SignRequest = require('hypercore-signing-request')
 const Hyperdrive = require('hyperdrive')
@@ -12,6 +13,8 @@ const z32 = require('z32')
 
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
+
+const cmdLink = command('link', description('Create multisig key'), link)
 
 const cmdRequest = command(
   'request',
@@ -53,11 +56,19 @@ const cmd = command(
   'multisig',
   flag('--config|-c <config>', `Config file path (default to ${DEFAULT_CONFIG_PATH})`),
   flag('--storage|-s <storage>', `Storage path (default to ${DEFAULT_STORAGE_PATH})`),
+  cmdLink,
   cmdRequest,
   cmdVerify,
   cmdCommit,
   () => console.log(cmd.help())
 )
+
+async function link() {
+  const { publicKeys, namespace } = await setup({ srcKeyRequired: false })
+  const key = MultisigUtil.getCoreKey(publicKeys, namespace)
+  console.info(`pear://${idEnc.normalize(key)}`)
+  goodbye.exit()
+}
 
 async function request() {
   const length = +cmdRequest.args.length
@@ -215,11 +226,14 @@ function printCommit(manifest, quorum, result, dryRun) {
   }
 }
 
-async function setup() {
+async function setup(opts = {}) {
   const configPath = cmd.flags.config || DEFAULT_CONFIG_PATH
   const storage = cmd.flags.storage || DEFAULT_STORAGE_PATH
 
-  const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(configPath)
+  const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(
+    configPath,
+    opts
+  )
   const { store, swarm } = await replication(storage, bootstrap)
   return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
 }
@@ -227,7 +241,7 @@ async function setup() {
 /**
  * @type {function(): Promise<{ publicKeys: string[], namespace: string, srcKey: string }>}
  */
-async function loadConfig(configPath) {
+async function loadConfig(configPath, opts = {}) {
   const {
     type,
     publicKeys,
@@ -237,7 +251,14 @@ async function loadConfig(configPath) {
     quorum = null
   } = JSON.parse(await fs.readFile(configPath, 'utf-8'))
 
-  if (!(type === 'core' || type === 'drive') || !publicKeys?.length || !namespace || !srcKey) {
+  const { srcKeyRequired = true } = opts
+
+  if (
+    !(type === 'core' || type === 'drive') ||
+    !publicKeys?.length ||
+    !namespace ||
+    (srcKeyRequired && !srcKey)
+  ) {
     throw new Error('Invalid config file')
   }
 
