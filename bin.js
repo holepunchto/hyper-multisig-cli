@@ -75,7 +75,6 @@ async function request() {
   if (!length) throw new Error('Invalid command')
 
   const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-
   const multisig = new Multisig(store, swarm)
 
   let request
@@ -91,13 +90,29 @@ async function request() {
     request = res.request
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
-    const res = await multisig
-      .requestDrive(publicKeys, namespace, srcDrive, length, {
-        force,
-        peerUpdateTimeout: peerUpdateTimeout,
-        quorum
-      })
-      .done()
+    const req = await multisig.requestDrive(publicKeys, namespace, srcDrive, length, {
+      force,
+      peerUpdateTimeout: peerUpdateTimeout,
+      quorum
+    })
+
+    req.on('getting-src-blobs', () => {
+      console.log('Getting the source blobs...')
+    })
+    req.on('verify-db-requestable-start', () => {
+      console.log('Verifying the db core is requestable....')
+    })
+    req.on('getting-blobs-length', () => {
+      console.log('Getting the blobs length (this can take a while)...')
+    })
+    req.on('verify-blobs-requestable-start', () => {
+      console.log('Verifying the blobs core is requestable...')
+    })
+    req.on('creating-drive', () => {
+      console.log('Creating the drive...')
+    })
+
+    const res = await req.done()
     request = res.request
   }
   printRequest(request)
