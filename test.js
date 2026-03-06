@@ -560,9 +560,13 @@ test('drive request and sign CLI flow', async (t) => {
             request = line.split('hypercore-sign ')[1]
           }
           if (line.includes('Getting the source blobs')) tRequestDrive.pass('source blobs log')
-          if (line.includes('Verifying the db core is requestable')) tRequestDrive.pass('db requestable log')
+          if (line.includes('Verifying the db core is requestable')) {
+            tRequestDrive.pass('db requestable log')
+          }
           if (line.includes('Getting the blobs length')) tRequestDrive.pass('blobs length log')
-          if (line.includes('Verifying the blobs core is requestable')) tRequestDrive.pass('blobs requestable log')
+          if (line.includes('Verifying the blobs core is requestable')) {
+            tRequestDrive.pass('blobs requestable log')
+          }
           if (line.includes('Creating the drive')) tRequestDrive.pass('creating drive log')
         }
       })
