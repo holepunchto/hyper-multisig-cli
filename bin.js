@@ -3,7 +3,6 @@ const Corestore = require('corestore')
 const fs = require('fs').promises
 const goodbye = require('graceful-goodbye')
 const Multisig = require('hyper-multisig')
-const MultisigUtil = require('hyper-multisig/lib/util')
 const idEnc = require('hypercore-id-encoding')
 const SignRequest = require('hypercore-signing-request')
 const Hyperdrive = require('hyperdrive')
@@ -65,7 +64,7 @@ const cmd = command(
 
 async function link() {
   const { publicKeys, namespace } = await setup({ withReplication: false, srcKeyRequired: false })
-  const key = MultisigUtil.getCoreKey(publicKeys, namespace)
+  const key = Multisig.getCoreKey(publicKeys, namespace)
   console.info(`pear://${idEnc.normalize(key)}`)
 }
 
