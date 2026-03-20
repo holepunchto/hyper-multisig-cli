@@ -13,7 +13,7 @@ const CoreSign = require('hypercore-sign')
 const SignRequest = require('hypercore-signing-request')
 const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
-const MultisigCore = require('hyper-multisig/lib/core')
+const Multisig = require('hyper-multisig')
 const NewlineDecoder = require('newline-decoder')
 const sodium = require('sodium-native')
 const { isBare } = require('which-runtime')
@@ -78,7 +78,7 @@ test('link', async (t) => {
 
   t.is(
     coreKey,
-    idEnc.normalize(MultisigCore.getCoreKey(publicKeys, namespace)),
+    idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace)),
     'core key is correct'
   )
 })
