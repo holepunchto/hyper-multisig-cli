@@ -76,11 +76,7 @@ test('link', async (t) => {
 
   await tLinkCore
 
-  t.is(
-    coreKey,
-    idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace)),
-    'core key is correct'
-  )
+  t.is(coreKey, idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace)), 'core key is correct')
 })
 
 test('core request and sign CLI flow', async (t) => {
