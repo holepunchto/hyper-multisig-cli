@@ -79,6 +79,68 @@ test('link', async (t) => {
   t.is(coreKey, idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace)), 'core key is correct')
 })
 
+test('link with custom quorum', async (t) => {
+  const tLinkCore = t.test('Link core CLI with quorum')
+  tLinkCore.plan(2)
+
+  const dir = await t.tmp()
+
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const { namespace, publicKeys } = setupMultisig(undefined, 5)
+  const quorum = 2
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    quorum
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  const linkProc = spawn(process.execPath, [
+    EXECUTABLE,
+    '--config',
+    configLoc,
+    '--storage',
+    cliStorageDir,
+    'link'
+  ])
+
+  process.on('exit', () => {
+    linkProc.kill('SIGKILL')
+  })
+  linkProc.stderr.on('data', (d) => {
+    console.error(d.toString())
+    t.fail('There should be no stderr')
+  })
+
+  let coreKey = null
+  const stdoutDec = new NewlineDecoder('utf-8')
+  linkProc.stdout.on('data', (d) => {
+    if (DEBUG) console.log(d.toString())
+
+    for (const line of stdoutDec.push(d)) {
+      if (line.includes('pear://')) {
+        tLinkCore.pass('link is printed')
+        coreKey = line.split('pear://')[1]
+      }
+    }
+  })
+
+  linkProc.on('exit', (status) => {
+    tLinkCore.is(status, 0, 'CLI process exited cleanly')
+  })
+
+  await tLinkCore
+
+  const expectedKey = idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace, { quorum }))
+  t.is(coreKey, expectedKey, 'core key with custom quorum is correct')
+
+  const defaultKey = idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace))
+  t.not(coreKey, defaultKey, 'custom quorum key differs from default quorum key')
+})
+
 test('core request and sign CLI flow', async (t) => {
   const { bootstrap, store, swarm, store2, swarm2, store3, swarm3, store4, swarm4 } = await setup(
     t,
