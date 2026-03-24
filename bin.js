@@ -63,8 +63,11 @@ const cmd = command(
 )
 
 async function link() {
-  const { publicKeys, namespace } = await setup({ withReplication: false, srcKeyRequired: false })
-  const key = Multisig.getCoreKey(publicKeys, namespace)
+  const { publicKeys, namespace, quorum } = await setup({
+    withReplication: false,
+    srcKeyRequired: false
+  })
+  const key = Multisig.getCoreKey(publicKeys, namespace, { quorum })
   console.info(`pear://${idEnc.normalize(key)}`)
 }
 
