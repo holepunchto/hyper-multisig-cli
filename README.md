@@ -55,7 +55,9 @@ await core.ready()
 for (let i = core.length; i < desiredLength; i++) await core.append(`Block-${i}`)
 
 const swarm = new Hyperswarm()
-swarm.on('connection', (conn) => { store.replicate(conn) })
+swarm.on('connection', (conn) => {
+  store.replicate(conn)
+})
 swarm.join(core.discoveryKey)
 console.log(`Swarming key ${core.id} (length ${core.length})`)
 ```
