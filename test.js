@@ -1,7 +1,6 @@
 const b4a = require('b4a')
 const test = require('brittle')
 const { spawn } = require('child_process')
-const cenc = require('compact-encoding')
 const Corestore = require('corestore')
 const fs = require('fs').promises
 const path = require('path')

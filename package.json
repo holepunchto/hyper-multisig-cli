@@ -35,7 +35,6 @@
     "bare-process": "^4.2.2",
     "bare-subprocess": "^5.2.2",
     "brittle": "^3.19.1",
-    "compact-encoding": "^2.18.0",
     "hypercore-crypto": "^3.6.1",
     "hypercore-sign": "^4.0.1",
     "hyperdht": "^6.29.0",
