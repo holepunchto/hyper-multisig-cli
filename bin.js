@@ -87,7 +87,7 @@ async function request() {
         force,
         peerUpdateTimeout: peerUpdateTimeout,
         quorum,
-        version: 2 // old-style requests compat with hypercore-sign v3
+        legacy: true // legacy requests compat with hypercore-sign v3
       })
       .done()
     request = res.request
@@ -97,7 +97,7 @@ async function request() {
       force,
       peerUpdateTimeout: peerUpdateTimeout,
       quorum,
-      version: 2 // old-style requests compat with hypercore-sign v3
+      legacy: true // legacy requests compat with hypercore-sign v3
     })
 
     req.on('getting-src-blobs', () => {
