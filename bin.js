@@ -86,7 +86,8 @@ async function request() {
       .requestCore(publicKeys, namespace, srcCore, length, {
         force,
         peerUpdateTimeout: peerUpdateTimeout,
-        quorum
+        quorum,
+        version: 2 // old-style requests compat with hypercore-sign v3
       })
       .done()
     request = res.request
@@ -95,7 +96,8 @@ async function request() {
     const req = await multisig.requestDrive(publicKeys, namespace, srcDrive, length, {
       force,
       peerUpdateTimeout: peerUpdateTimeout,
-      quorum
+      quorum,
+      version: 2 // old-style requests compat with hypercore-sign v3
     })
 
     req.on('getting-src-blobs', () => {
