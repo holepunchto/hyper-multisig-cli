@@ -229,6 +229,7 @@ test('core request and sign CLI flow', async (t) => {
     await tRequestCore
   }
 
+  t.is(SignRequest.decode(z32.decode(request)).version, 2, 'generates legacy requests') // expected to fail when we move to v3 requests. Make sure to major bump then.
   const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
 
   {
@@ -635,6 +636,7 @@ test('drive request and sign CLI flow', async (t) => {
     await tRequestDrive
   }
 
+  t.is(SignRequest.decode(z32.decode(request)).version, 2, 'generates legacy requests') // expected to fail when we move to v3 requests. Make sure to major bump then.
   const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
 
   {
