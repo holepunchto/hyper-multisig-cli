@@ -280,14 +280,17 @@ async function loadConfig(configPath, opts = {}) {
 
   const { srcKeyRequired = true } = opts
 
-  if (
-    !(type === 'core' || type === 'drive') ||
-    !publicKeys?.length ||
-    !namespace ||
-    (srcKeyRequired && !srcKey)
-  ) {
-    throw new Error('Invalid config file')
+  if (!(type === 'core' || type === 'drive')) {
+    throw new Error(`type must be either core or drive. Saw '${type}'`)
   }
+  if (!namespace) throw new Error('namespace must be set')
+  if (!publicKeys?.length) throw new Error('publicKeys must be set and include at least 1 key')
+  for (let i = 0; i < publicKeys.length; i++) {
+    if(!idEnc.isValid(publicKeys[i])) throw new Error(`invalid publicKey ${i}: '${publicKeys[i]}'`)
+  }
+
+  if(srcKeyRequired && !srcKey) throw new Error('srcKey must be set')
+  if (srcKey && !idEnc.isValid(srcKey)) throw new Error(`invalid srcKey: '${srcKey}'`)
 
   if (bootstrap) console.info(`Using non-default bootstrap`)
   return { type, publicKeys, namespace, srcKey, bootstrap, quorum }
