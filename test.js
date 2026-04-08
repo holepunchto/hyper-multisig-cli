@@ -1098,7 +1098,11 @@ test('validates multisigKey if set', async (t) => {
   {
     const { status, stderr } = await runCommand(configLoc, cliStorageDir)
     t.is(status, 1, 'error status')
-    t.ok(stderr.includes(`multisigKey does not correspond to the key generated from the config (expected ${idEnc.normalize(multisigKey)})`))
+    t.ok(
+      stderr.includes(
+        `multisigKey does not correspond to the key generated from the config (expected ${idEnc.normalize(multisigKey)})`
+      )
+    )
   }
 
   config.multisigKey = multisigKey
@@ -1152,7 +1156,6 @@ async function runCommand(configLoc, cliStorageDir, command = 'link', args = [])
       stdout += line + '\n'
     }
   })
-
 
   const status = await doneProm
   return { status, stderr, stdout }

@@ -300,9 +300,10 @@ async function loadConfig(configPath, opts = {}) {
     const calculatedKey = idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace, { quorum }))
     const passedInKey = idEnc.normalize(multisigKey)
     if (passedInKey !== calculatedKey) {
-      throw new Error(`multisigKey does not correspond to the key generated from the config (expected ${calculatedKey})`)
+      throw new Error(
+        `multisigKey does not correspond to the key generated from the config (expected ${calculatedKey})`
+      )
     }
-
   }
 
   return { type, publicKeys, namespace, srcKey, bootstrap, quorum }
