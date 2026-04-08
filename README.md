@@ -82,6 +82,8 @@ Note that the key of the multisig hypercore is fully determined by the public ke
 
 It is possible to switch to a different `srcKey`.
 
+The config supports an optional `multisigKey` field. Set this to the multisig key corresponding to your config (the key returned by the `link`command). This can be useful for searching configs based on their multisigKey.
+
 ### Create Signing Request
 
 ```shell
