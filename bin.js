@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const Corestore = require('corestore')
+const process = require('process')
 const fs = require('fs').promises
 const goodbye = require('graceful-goodbye')
 const Multisig = require('hyper-multisig')
@@ -13,7 +14,7 @@ const z32 = require('z32')
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
 
-const cmdLink = command('link', description('Create multisig key'), link)
+const cmdLink = command('link', description('Create multisig key'), wrapErrHandler(link))
 
 const cmdRequest = command(
   'request',
@@ -21,7 +22,7 @@ const cmdRequest = command(
   flag('--force', 'Skip sanity checks'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('<length>', 'Core length to request'),
-  request
+  wrapErrHandler(request)
 )
 
 const cmdVerify = command(
@@ -34,7 +35,7 @@ const cmdVerify = command(
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
-  verify
+  wrapErrHandler(verify)
 )
 
 const cmdCommit = command(
@@ -48,7 +49,7 @@ const cmdCommit = command(
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
-  commit
+  wrapErrHandler(commit)
 )
 
 const cmd = command(
@@ -313,6 +314,18 @@ async function replication(storage, bootstrap) {
     store.replicate(conn)
   })
   return { store, swarm }
+}
+
+function wrapErrHandler(func) {
+  const res = async () => {
+    try {
+      await func()
+    } catch (e) {
+      console.error(e)
+      process.exit(1)
+    }
+  }
+  return res
 }
 
 cmd.parse()
