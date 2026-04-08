@@ -975,6 +975,141 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
+test('clear errors for bad config', async (t) => {
+  const dir = await t.tmp()
+
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const goodConfig = {
+    type: 'core',
+    namespace: 'my-namespace',
+    publicKeys: ['a'.repeat(64)]
+  }
+  await fs.writeFile(configLoc, JSON.stringify(goodConfig))
+
+  {
+    const { status } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 0, 'sanity check: good config works')
+  }
+
+  {
+    const badConfig = {
+      ...goodConfig,
+      type: 'cor'
+    }
+    await fs.writeFile(configLoc, JSON.stringify(badConfig))
+
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 1, 'err status')
+    t.ok(stderr.includes("type must be either core or drive. Saw 'cor'"), 'correct type error msg')
+  }
+
+  {
+    const badConfig = {
+      ...goodConfig,
+      namespace: undefined
+    }
+    await fs.writeFile(configLoc, JSON.stringify(badConfig))
+
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 1, 'err status')
+    t.ok(stderr.includes('namespace must be set'), 'correct namespace error msg')
+  }
+
+  {
+    const badConfig = {
+      ...goodConfig,
+      publicKeys: []
+    }
+    await fs.writeFile(configLoc, JSON.stringify(badConfig))
+
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 1, 'err status')
+    t.ok(
+      stderr.includes('publicKeys must be set and include at least 1 key'),
+      'correct publicKeys error msg'
+    )
+  }
+
+  {
+    const badConfig = {
+      ...goodConfig,
+      publicKeys: ['b'.repeat(64), 'aaaa']
+    }
+    await fs.writeFile(configLoc, JSON.stringify(badConfig))
+
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 1, 'err status')
+    t.ok(stderr.includes("invalid publicKey 1: 'aaaa'"), 'correct invalid publicKey error msg')
+  }
+
+  {
+    const badConfig = {
+      ...goodConfig,
+      srcKey: undefined
+    }
+    await fs.writeFile(configLoc, JSON.stringify(badConfig))
+
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir, 'verify', [
+      'irrelevantrequestcontent'
+    ])
+    t.is(status, 1, 'err status')
+    t.ok(stderr.includes('srcKey must be set'), 'correct srcKey error msg')
+  }
+
+  {
+    const badConfig = {
+      ...goodConfig,
+      srcKey: 'aaaa'
+    }
+    await fs.writeFile(configLoc, JSON.stringify(badConfig))
+
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir, 'verify', [
+      'irrelevantrequestcontent'
+    ])
+    t.is(status, 1, 'err status')
+    t.ok(stderr.includes("invalid srcKey: 'aaaa'"), 'correct srcKey error msg')
+  }
+})
+
+async function runCommand(configLoc, cliStorageDir, command = 'link', args = []) {
+  let procResolve = null
+  const doneProm = new Promise((resolve) => {
+    procResolve = resolve
+  })
+
+  const proc = spawn(process.execPath, [
+    EXECUTABLE,
+    '--config',
+    configLoc,
+    '--storage',
+    cliStorageDir,
+    command,
+    ...args
+  ])
+  // To avoid zombie processes in case there's an error
+  process.on('exit', () => {
+    proc.kill('SIGKILL')
+  })
+  proc.on('exit', (status) => {
+    procResolve(status)
+  })
+
+  const stderrDec = new NewlineDecoder('utf-8')
+  let stderr = ''
+  proc.stderr.on('data', (d) => {
+    if (DEBUG) console.log(d.toString())
+
+    for (const line of stderrDec.push(d)) {
+      stderr += line + '\n'
+    }
+  })
+
+  const status = await doneProm
+  return { status, stderr }
+}
+
 async function setupTestnet(t) {
   const testnet = await createTestnet()
   t.teardown(() => testnet.destroy(), { order: 5000 })
