@@ -996,7 +996,7 @@ test('clear errors for bad config', async (t) => {
   {
     const badConfig = {
       ...goodConfig,
-      'type': 'cor'
+      type: 'cor'
     }
     await fs.writeFile(configLoc, JSON.stringify(badConfig))
 
@@ -1014,7 +1014,7 @@ test('clear errors for bad config', async (t) => {
 
     const { status, stderr } = await runCommand(configLoc, cliStorageDir)
     t.is(status, 1, 'err status')
-    t.ok(stderr.includes("namespace must be set"), 'correct namespace error msg')
+    t.ok(stderr.includes('namespace must be set'), 'correct namespace error msg')
   }
 
   {
@@ -1026,7 +1026,10 @@ test('clear errors for bad config', async (t) => {
 
     const { status, stderr } = await runCommand(configLoc, cliStorageDir)
     t.is(status, 1, 'err status')
-    t.ok(stderr.includes("publicKeys must be set and include at least 1 key"), 'correct publicKeys error msg')
+    t.ok(
+      stderr.includes('publicKeys must be set and include at least 1 key'),
+      'correct publicKeys error msg'
+    )
   }
 
   {
@@ -1048,7 +1051,9 @@ test('clear errors for bad config', async (t) => {
     }
     await fs.writeFile(configLoc, JSON.stringify(badConfig))
 
-    const { status, stderr } = await runCommand(configLoc, cliStorageDir, 'verify', ['irrelevantrequestcontent'])
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir, 'verify', [
+      'irrelevantrequestcontent'
+    ])
     t.is(status, 1, 'err status')
     t.ok(stderr.includes('srcKey must be set'), 'correct srcKey error msg')
   }
@@ -1060,7 +1065,9 @@ test('clear errors for bad config', async (t) => {
     }
     await fs.writeFile(configLoc, JSON.stringify(badConfig))
 
-    const { status, stderr } = await runCommand(configLoc, cliStorageDir, 'verify', ['irrelevantrequestcontent'])
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir, 'verify', [
+      'irrelevantrequestcontent'
+    ])
     t.is(status, 1, 'err status')
     t.ok(stderr.includes("invalid srcKey: 'aaaa'"), 'correct srcKey error msg')
   }
@@ -1068,7 +1075,9 @@ test('clear errors for bad config', async (t) => {
 
 async function runCommand(configLoc, cliStorageDir, command = 'link', args = []) {
   let procResolve = null
-  const doneProm = new Promise(resolve => { procResolve = resolve})
+  const doneProm = new Promise((resolve) => {
+    procResolve = resolve
+  })
 
   const proc = spawn(process.execPath, [
     EXECUTABLE,
