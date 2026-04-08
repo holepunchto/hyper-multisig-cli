@@ -1073,6 +1073,43 @@ test('clear errors for bad config', async (t) => {
   }
 })
 
+test('validates multisigKey if set', async (t) => {
+  const dir = await t.tmp()
+
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const config = {
+    type: 'core',
+    namespace: 'my-namespace',
+    publicKeys: ['a'.repeat(64)]
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  let multisigKey = null
+  {
+    const { status, stdout } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 0, 'sanity check: config works')
+    multisigKey = stdout.split('pear://')[1].trim()
+  }
+
+  config.multisigKey = 'a'.repeat(64)
+  await fs.writeFile(configLoc, JSON.stringify(config))
+  {
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 1, 'error status')
+    t.ok(stderr.includes(`multisigKey does not correspond to the key generated from the config (expected ${idEnc.normalize(multisigKey)})`))
+  }
+
+  config.multisigKey = multisigKey
+  await fs.writeFile(configLoc, JSON.stringify(config))
+  {
+    const { status, stderr } = await runCommand(configLoc, cliStorageDir)
+    t.is(status, 0, 'correct run with valid multisigKey')
+    t.is(stderr, '', 'no stderr (sanity check)')
+  }
+})
+
 async function runCommand(configLoc, cliStorageDir, command = 'link', args = []) {
   let procResolve = null
   const doneProm = new Promise((resolve) => {
@@ -1106,8 +1143,19 @@ async function runCommand(configLoc, cliStorageDir, command = 'link', args = [])
     }
   })
 
+  const stdoutDec = new NewlineDecoder('utf-8')
+  let stdout = ''
+  proc.stdout.on('data', (d) => {
+    if (DEBUG) console.log(d.toString())
+
+    for (const line of stdoutDec.push(d)) {
+      stdout += line + '\n'
+    }
+  })
+
+
   const status = await doneProm
-  return { status, stderr }
+  return { status, stderr, stdout }
 }
 
 async function setupTestnet(t) {
