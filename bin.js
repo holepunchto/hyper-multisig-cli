@@ -276,7 +276,8 @@ async function loadConfig(configPath, opts = {}) {
     namespace,
     srcKey,
     bootstrap,
-    quorum = null
+    quorum = null,
+    multisigKey = null
   } = JSON.parse(await fs.readFile(configPath, 'utf-8'))
 
   const { srcKeyRequired = true } = opts
@@ -294,6 +295,17 @@ async function loadConfig(configPath, opts = {}) {
   if (srcKey && !idEnc.isValid(srcKey)) throw new Error(`invalid srcKey: '${srcKey}'`)
 
   if (bootstrap) console.info(`Using non-default bootstrap`)
+
+  if (multisigKey) {
+    const calculatedKey = idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace, { quorum }))
+    const passedInKey = idEnc.normalize(multisigKey)
+    if (passedInKey !== calculatedKey) {
+      throw new Error(
+        `multisigKey does not correspond to the key generated from the config (expected ${calculatedKey})`
+      )
+    }
+  }
+
   return { type, publicKeys, namespace, srcKey, bootstrap, quorum }
 }
 
