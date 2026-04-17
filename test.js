@@ -975,6 +975,65 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
+test('seed CLI', async (t) => {
+  const { bootstrap, store, swarm } = await setup(t, 1)
+
+  const tSeed = t.test('Seed CLI')
+  tSeed.plan(2)
+
+  const srcCore = await setupCore(t, store, swarm)
+
+  const dir = await t.tmp()
+
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const { namespace, publicKeys } = setupMultisig(undefined, 3)
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcCore.key),
+    bootstrap
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  const seedProc = spawn(process.execPath, [
+    EXECUTABLE,
+    '--config',
+    configLoc,
+    '--storage',
+    cliStorageDir,
+    'seed'
+  ])
+
+  process.on('exit', () => {
+    seedProc.kill('SIGKILL')
+  })
+  seedProc.stderr.on('data', (d) => {
+    console.error(d.toString())
+    t.fail('There should be no stderr')
+  })
+
+  const stdoutDec = new NewlineDecoder('utf-8')
+  seedProc.stdout.on('data', (d) => {
+    if (DEBUG) console.log(d.toString())
+
+    for (const line of stdoutDec.push(d)) {
+      if (line.includes('Seeding now')) {
+        tSeed.pass('seeding message printed')
+        seedProc.kill('SIGINT')
+      }
+    }
+  })
+
+  seedProc.on('exit', (status) => {
+    tSeed.pass('seed process shuts down cleanly')
+  })
+
+  await tSeed
+})
+
 test('clear errors for bad config', async (t) => {
   const dir = await t.tmp()
 
