@@ -52,6 +52,12 @@ const cmdCommit = command(
   wrapErrHandler(commit)
 )
 
+const cmdSeed = command(
+  'seed',
+  description('Seed multisig'),
+  wrapErrHandler(seed)
+)
+
 const cmd = command(
   'multisig',
   flag('--config|-c <config>', `Config file path (default to ${DEFAULT_CONFIG_PATH})`),
@@ -60,6 +66,7 @@ const cmd = command(
   cmdRequest,
   cmdVerify,
   cmdCommit,
+  cmdSeed,
   () => console.log(cmd.help())
 )
 
@@ -201,6 +208,11 @@ async function commit() {
   printCommit(res.manifest, res.quorum, res.result)
   const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destCore.key
   console.info(`${type} key: ${destKey}`)
+}
+
+async function seed() {
+  await setup()
+  console.log('Seeding now ~ Press Ctrl+C to exit')
 }
 
 function setupProgressLogs(req, name, firstCommit) {
