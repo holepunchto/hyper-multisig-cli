@@ -1100,7 +1100,7 @@ test('validates multisigKey if set', async (t) => {
     t.is(status, 1, 'error status')
     t.ok(
       stderr.includes(
-        `multisigKey does not correspond to the key generated from the config (expected ${idEnc.normalize(multisigKey)})`
+        `multisigKey does not correspond to the key generated from the config, expected ${multisigKey} (hex: ${idEnc.decode(multisigKey).toString('hex')})`
       )
     )
   }
