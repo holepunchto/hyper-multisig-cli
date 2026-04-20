@@ -207,15 +207,36 @@ async function commit() {
 }
 
 async function seed({ minFullCopies = 2 } = {}) {
-  const { type, publicKeys, namespace, quorum, store, swarm } = await setup()
+  const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
   const multisig = new Multisig(store, swarm)
 
   console.log('\nSeeding now ~ Press Ctrl+C to exit\n')
 
-  const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-  swarm.join(core.discoveryKey)
-  await core.ready()
-  await waitSeeding(core, { label: 'Target', minFullCopies })
+  if (type === 'core') {
+    const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    await srcCore.ready()
+    swarm.join(srcCore.discoveryKey)
+    await waitSeeding(srcCore, { label: 'Source', minFullCopies })
+  } else {
+    const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    await srcDrive.ready()
+    swarm.join(srcDrive.discoveryKey)
+    await waitSeeding(srcDrive.db.core, { label: 'Source db', minFullCopies })
+    await waitSeeding(srcDrive.blobs.core, { label: 'Source blobs', minFullCopies })
+  }
+
+  if (type === 'core') {
+    const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
+    swarm.join(core.discoveryKey)
+    await core.ready()
+    await waitSeeding(core, { label: 'Target', minFullCopies })
+  } else {
+    const { manifest, core } = await multisig.createDrive(publicKeys, namespace, { quorum })
+    swarm.join(core.discoveryKey)
+    await core.ready()
+    await waitSeeding(core, { label: 'Target db', minFullCopies })
+    await waitSeeding(core, { label: 'Target blobs', minFullCopies })
+  }
 
   goodbye.exit()
 }
@@ -377,7 +398,7 @@ async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
       for (const p of core.peers) {
         if (tgtFullCopies >= minFullCopies) {
           clearInterval(interval)
-          console.log(`\nDone seeding ~ Sufficient peers have been fully copied\n`)
+          console.log(`\nDone seeding ${label} core ~ Sufficient peers have been fully copied\n`)
           resolve()
           break
         }
