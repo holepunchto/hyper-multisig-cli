@@ -52,7 +52,7 @@ const cmdCommit = command(
   wrapErrHandler(commit)
 )
 
-const cmdSeed = command('seed', description('Seed multisig'), wrapErrHandler(seed))
+const cmdSeed = command('seed', description('Seed both the source and multisig cores/drives'), wrapErrHandler(seed))
 
 const cmd = command(
   'multisig',
