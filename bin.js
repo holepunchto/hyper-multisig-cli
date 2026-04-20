@@ -415,6 +415,7 @@ async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
         console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
       }
     }, 1000)
+    goodbye(() => clearInterval(interval))
   })
 }
 
