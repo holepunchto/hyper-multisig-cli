@@ -225,11 +225,11 @@ async function seed({ minFullCopies = 2 } = {}) {
 
   const interval = setInterval(() => {
     if (!core.peers.length) {
-      console.log(`[${new Date().toLocaleString()}] Remote replication status: no peers connected`)
+      console.log(`[${new Date().toLocaleString()}] No peers connected`)
       return
     }
 
-    console.log(`[${new Date().toLocaleString()}] Remote replication status: ${core.peers.length} peers`)
+    console.log(`[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
     let tgtFullCopies = 0
     for (const p of core.peers) {
       if (tgtFullCopies >= minFullCopies) {
