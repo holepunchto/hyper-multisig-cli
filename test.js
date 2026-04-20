@@ -975,6 +975,183 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
+test('seed cmd - core', async (t) => {
+  const {
+    bootstrap,
+    store,
+    swarm,
+    store2,
+    swarm2,
+    store3,
+    swarm3,
+    store4,
+    swarm4,
+    store5,
+    swarm5
+  } = await setup(t, 5)
+
+  const srcCore = await setupCore(t, store, swarm)
+
+  const dir = await t.tmp()
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcCore.key),
+    bootstrap
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  let request = null
+  {
+    const tRequest = t.test('Request')
+    tRequest.plan(2)
+
+    const proc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request',
+      '--force',
+      srcCore.length
+    ])
+    process.on('exit', () => proc.kill('SIGKILL'))
+    proc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during request')
+    })
+
+    const dec = new NewlineDecoder('utf-8')
+    proc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('hypercore-sign')) {
+          tRequest.pass('sign request created')
+          request = line.split('hypercore-sign ')[1]
+        }
+      }
+    })
+    proc.on('exit', (status) => tRequest.is(status, 0, 'request process exited cleanly'))
+    await tRequest
+  }
+
+  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+
+  let tgtCoreKey = null
+  {
+    const tCommit = t.test('Commit')
+    tCommit.plan(1)
+
+    const proc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'commit',
+      '--first-commit',
+      '--force-dangerous',
+      request,
+      ...responses
+    ])
+    process.on('exit', () => proc.kill('SIGKILL'))
+    proc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during commit')
+    })
+
+    const dec = new NewlineDecoder('utf-8')
+    proc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('core key:')) {
+          tCommit.pass('committed')
+          tgtCoreKey = line.split('core key: ')[1]
+        }
+      }
+    })
+
+    await tCommit
+    proc.kill('SIGINT')
+    await new Promise((resolve) => proc.on('exit', resolve))
+  }
+
+  {
+    const tSeedSrc = t.test('Seed source core')
+    tSeedSrc.plan(1)
+    const tSeedTgt = t.test('Seed target core')
+    tSeedTgt.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrc = false
+    let doneTgt = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('Source core: 3 peers, 3 fully downloaded') && !doneSrc) {
+          tSeedSrc.pass('source core is fully downloaded and seeded')
+          doneSrc = true
+        }
+        if (line.includes('Multisig core: 2 peers, 2 fully downloaded') && !doneTgt) {
+          tSeedTgt.pass('target core is fully downloaded and seeded')
+          doneTgt = true
+        }
+      }
+    })
+
+    const srcCopy2 = store2.get(srcCore.key)
+    await srcCopy2.ready()
+    swarm2.join(srcCopy2.discoveryKey)
+    srcCopy2.download({ start: 0, end: -1 })
+
+    const srcCopy3 = store3.get(srcCore.key)
+    await srcCopy3.ready()
+    swarm3.join(srcCopy3.discoveryKey)
+    srcCopy3.download({ start: 0, end: -1 })
+
+    const tgtCopy4 = store4.get(idEnc.decode(tgtCoreKey))
+    await tgtCopy4.ready()
+    swarm4.join(tgtCopy4.discoveryKey)
+    tgtCopy4.download({ start: 0, end: -1 })
+
+    const tgtCopy5 = store5.get(idEnc.decode(tgtCoreKey))
+    await tgtCopy5.ready()
+    swarm5.join(tgtCopy5.discoveryKey)
+    tgtCopy5.download({ start: 0, end: -1 })
+
+    await tSeedSrc
+    await tSeedTgt
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+})
+
 test('clear errors for bad config', async (t) => {
   const dir = await t.tmp()
 
