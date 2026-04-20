@@ -210,39 +210,14 @@ async function seed({ minFullCopies = 2 } = {}) {
   const { type, publicKeys, namespace, quorum, store, swarm } = await setup()
   const multisig = new Multisig(store, swarm)
 
+  console.log('\nSeeding now ~ Press Ctrl+C to exit\n')
+
   const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
   swarm.join(core.discoveryKey)
-
   await core.ready()
-  const treeHash = idEnc.normalize(await core.treeHash())
-  console.log('Target core:')
-  console.log(`  key:      ${idEnc.normalize(core.key)}`)
-  console.log(`  keyHex:   ${core.key.toString('hex')}`)
-  console.log(`  length:   ${core.length}`)
-  console.log(`  treeHash: ${treeHash}`)
-  console.log()
-  console.log('Seeding now ~ Press Ctrl+C to exit')
+  await waitSeeding(core, { label: 'Target', minFullCopies })
 
-  const interval = setInterval(() => {
-    if (!core.peers.length) {
-      console.log(`[${new Date().toLocaleString()}] No peers connected`)
-      return
-    }
-
-    console.log(`[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
-    let tgtFullCopies = 0
-    for (const p of core.peers) {
-      if (tgtFullCopies >= minFullCopies) {
-        console.log(`Done seeding ~ ${tgtFullCopies} peers have been fully copied. Exiting...`)
-        clearInterval(interval)
-        goodbye.exit()
-        break
-      }
-      if (p.remoteContiguousLength === core.length) tgtFullCopies++
-      const peerKey = p.remotePublicKey ? idEnc.normalize(p.remotePublicKey) : 'unknown'
-      console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
-    }
-  }, 1000)
+  goodbye.exit()
 }
 
 function setupProgressLogs(req, name, firstCommit) {
@@ -380,6 +355,38 @@ function wrapErrHandler(func) {
     }
   }
   return res
+}
+
+async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
+  const treeHash = idEnc.normalize(await core.treeHash())
+  console.log(`${label} core:`)
+  console.log(`  key:      ${idEnc.normalize(core.key)}`)
+  console.log(`  keyHex:   ${core.key.toString('hex')}`)
+  console.log(`  length:   ${core.length}`)
+  console.log(`  treeHash: ${treeHash}\n`)
+
+  await new Promise((resolve) => {
+    const interval = setInterval(() => {
+      if (!core.peers.length) {
+        console.log(`[${new Date().toLocaleString()}] No peers connected`)
+        return
+      }
+
+      console.log(`\n[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
+      let tgtFullCopies = 0
+      for (const p of core.peers) {
+        if (tgtFullCopies >= minFullCopies) {
+          clearInterval(interval)
+          console.log(`\nDone seeding ~ Sufficient peers have been fully copied\n`)
+          resolve()
+          break
+        }
+        if (p.remoteContiguousLength === core.length) tgtFullCopies++
+        const peerKey = p.remotePublicKey ? idEnc.normalize(p.remotePublicKey) : 'unknown'
+        console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
+      }
+    }, 1000)
+  })
 }
 
 cmd.parse()
