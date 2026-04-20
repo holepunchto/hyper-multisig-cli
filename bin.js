@@ -233,7 +233,7 @@ async function seed({ minFullCopies = 2 } = {}) {
     let tgtFullCopies = 0
     for (const p of core.peers) {
       if (tgtFullCopies >= minFullCopies) {
-        console.log('Done seeding - all remotes are up to date')
+        console.log(`Done seeding ~ ${tgtFullCopies} peers have been fully copied. Exiting...`)
         clearInterval(interval)
         goodbye.exit()
         break
