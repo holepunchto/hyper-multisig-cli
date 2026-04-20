@@ -237,6 +237,8 @@ async function seed({ minFullCopies = 2 } = {}) {
     await core.ready()
     swarm.join(core.discoveryKey)
     await waitSeeding(core, { label: 'Target db', minFullCopies })
+    await blobsCore.ready()
+    swarm.join(blobsCore.discoveryKey)
     await waitSeeding(blobsCore, { label: 'Target blobs', minFullCopies })
   }
 
