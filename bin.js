@@ -236,6 +236,7 @@ async function seed({ minFullCopies = 2 } = {}) {
 
   if (type === 'core') {
     const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
+    if (goodbye.exiting) return
     await core.ready()
     if (goodbye.exiting) return
     swarm.join(core.discoveryKey)
@@ -244,6 +245,7 @@ async function seed({ minFullCopies = 2 } = {}) {
     const { manifest, core, blobsCore } = await multisig.createDrive(publicKeys, namespace, {
       quorum
     })
+    if (goodbye.exiting) return
     await core.ready()
     if (goodbye.exiting) return
     swarm.join(core.discoveryKey)
