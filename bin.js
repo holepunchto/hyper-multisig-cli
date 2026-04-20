@@ -227,15 +227,15 @@ async function seed({ minFullCopies = 2 } = {}) {
 
   if (type === 'core') {
     const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-    swarm.join(core.discoveryKey)
     await core.ready()
+    swarm.join(core.discoveryKey)
     await waitSeeding(core, { label: 'Target', minFullCopies })
   } else {
     const { manifest, core, blobsCore } = await multisig.createDrive(publicKeys, namespace, {
       quorum
     })
-    swarm.join(core.discoveryKey)
     await core.ready()
+    swarm.join(core.discoveryKey)
     await waitSeeding(core, { label: 'Target db', minFullCopies })
     await waitSeeding(blobsCore, { label: 'Target blobs', minFullCopies })
   }
