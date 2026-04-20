@@ -206,9 +206,43 @@ async function commit() {
   console.info(`${type} key: ${destKey}`)
 }
 
-async function seed() {
-  await setup()
+async function seed({ minFullCopies = 2 } = {}) {
+  const { type, publicKeys, namespace, quorum, store, swarm } = await setup()
+  const multisig = new Multisig(store, swarm)
+
+  const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
+  swarm.join(core.discoveryKey)
+
+  await core.ready()
+  const treeHash = idEnc.normalize(await core.treeHash())
+  console.log('Target core:')
+  console.log(`  key:      ${idEnc.normalize(core.key)}`)
+  console.log(`  keyHex:   ${core.key.toString('hex')}`)
+  console.log(`  length:   ${core.length}`)
+  console.log(`  treeHash: ${treeHash}`)
+  console.log()
   console.log('Seeding now ~ Press Ctrl+C to exit')
+
+  const interval = setInterval(() => {
+    if (!core.peers.length) {
+      console.log(`[${new Date().toLocaleString()}] Remote replication status: no peers connected`)
+      return
+    }
+
+    console.log(`[${new Date().toLocaleString()}] Remote replication status: ${core.peers.length} peers`)
+    let tgtFullCopies = 0
+    for (const p of core.peers) {
+      if (tgtFullCopies >= minFullCopies) {
+        console.log('Done seeding - all remotes are up to date')
+        clearInterval(interval)
+        goodbye.exit()
+        break
+      }
+      if (p.remoteContiguousLength === core.length) tgtFullCopies++
+      const peerKey = p.remotePublicKey ? idEnc.normalize(p.remotePublicKey) : 'unknown'
+      console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
+    }
+  }, 1000)
 }
 
 function setupProgressLogs(req, name, firstCommit) {
