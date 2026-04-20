@@ -395,6 +395,10 @@ async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
   console.log(`  treeHash: ${treeHash}\n`)
 
   await new Promise((resolve) => {
+    let shuttingDown = false
+    goodbye(() => {
+      shuttingDown = true
+    })
     const interval = setInterval(() => {
       if (!core.peers.length) {
         console.log(`[${new Date().toLocaleString()}] No peers connected`)
@@ -404,6 +408,7 @@ async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
       console.log(`\n[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
       let tgtFullCopies = 0
       for (const p of core.peers) {
+        if (shuttingDown) break
         if (tgtFullCopies >= minFullCopies) {
           clearInterval(interval)
           console.log(`\nDone seeding ${label} core ~ Sufficient peers have been fully copied\n`)
