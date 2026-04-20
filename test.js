@@ -975,7 +975,7 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
-test.solo('seed cmd - core', async (t) => {
+test('seed cmd - core', async (t) => {
   const {
     bootstrap,
     store,
@@ -1194,6 +1194,130 @@ test.solo('seed cmd - core', async (t) => {
 
     await srcCore.append(b4a.from('content 3'))
     await srcCore.append(b4a.from('content 4'))
+
+    await tSeedSrc
+    await tSeedTgt
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+
+  {
+    let request2 = null
+    {
+      const tRequest = t.test('Request')
+      tRequest.plan(2)
+
+      const proc = spawn(process.execPath, [
+        EXECUTABLE,
+        '--config',
+        configLoc,
+        '--storage',
+        cliStorageDir,
+        'request',
+        srcCore.length
+      ])
+      process.on('exit', () => proc.kill('SIGKILL'))
+      proc.stderr.on('data', (d) => {
+        console.error(d.toString())
+        t.fail('no stderr expected during request')
+      })
+
+      const dec = new NewlineDecoder('utf-8')
+      proc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+        for (const line of dec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequest.pass('sign request created')
+            request2 = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+      proc.on('exit', (status) => tRequest.is(status, 0, 'request process exited cleanly'))
+      await tRequest
+    }
+
+    const responses2 = signers
+      .slice(0, 2)
+      .map((signer) => signResponse(z32.decode(request2), signer))
+
+    let tgtCoreKey2 = null
+    {
+      const tCommit = t.test('Commit')
+      tCommit.plan(1)
+
+      const proc = spawn(process.execPath, [
+        EXECUTABLE,
+        '--config',
+        configLoc,
+        '--storage',
+        cliStorageDir,
+        'commit',
+        request2,
+        ...responses2
+      ])
+      process.on('exit', () => proc.kill('SIGKILL'))
+      proc.stderr.on('data', (d) => {
+        console.error(d.toString())
+        t.fail('no stderr expected during commit')
+      })
+
+      const dec = new NewlineDecoder('utf-8')
+      proc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+        for (const line of dec.push(d)) {
+          if (line.includes('core key:')) {
+            tCommit.pass('committed')
+            tgtCoreKey2 = line.split('core key: ')[1]
+          }
+        }
+      })
+
+      await tCommit
+      proc.kill('SIGINT')
+      await new Promise((resolve) => proc.on('exit', resolve))
+    }
+
+    const tSeedSrc = t.test('Seed source core')
+    tSeedSrc.plan(1)
+    const tSeedTgt = t.test('Seed target core')
+    tSeedTgt.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrc = false
+    let doneTgt = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes(`Source core: 3 peers, 3 fully downloaded, length: 5`) && !doneSrc) {
+          tSeedSrc.pass('source core is fully downloaded and seeded')
+          doneSrc = true
+        }
+        if (line.includes(`Multisig core: 2 peers, 2 fully downloaded, length: 5`) && !doneTgt) {
+          tSeedTgt.pass('target core is fully downloaded and seeded')
+          doneTgt = true
+        }
+      }
+    })
 
     await tSeedSrc
     await tSeedTgt
