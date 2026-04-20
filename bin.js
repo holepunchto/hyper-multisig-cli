@@ -276,7 +276,9 @@ async function seed() {
       for (const p of core.peers) {
         if (p.remoteContiguousLength >= core.length) fullyDownloadedPeers++
       }
-      console.log(`${label} core: ${peers} peers, ${fullyDownloadedPeers} fully downloaded`)
+      console.log(
+        `${label} core: ${peers} peers, ${fullyDownloadedPeers} fully downloaded, length: ${core.length}`
+      )
     })
     console.log()
   }, logInterval)

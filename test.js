@@ -975,7 +975,7 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
-test('seed cmd - core', async (t) => {
+test.solo('seed cmd - core', async (t) => {
   const {
     bootstrap,
     store,
@@ -1082,6 +1082,12 @@ test('seed cmd - core', async (t) => {
     await new Promise((resolve) => proc.on('exit', resolve))
   }
 
+  const srcCopy2 = store2.get(srcCore.key)
+  await srcCopy2.ready()
+
+  const tgtCopy4 = store4.get(idEnc.decode(tgtCoreKey))
+  await tgtCopy4.ready()
+
   {
     const tSeedSrc = t.test('Seed source core')
     tSeedSrc.plan(1)
@@ -1110,19 +1116,17 @@ test('seed cmd - core', async (t) => {
     seedProc.stdout.on('data', (d) => {
       if (DEBUG) console.log(d.toString())
       for (const line of dec.push(d)) {
-        if (line.includes('Source core: 3 peers, 3 fully downloaded') && !doneSrc) {
+        if (line.includes(`Source core: 3 peers, 3 fully downloaded, length: 3`) && !doneSrc) {
           tSeedSrc.pass('source core is fully downloaded and seeded')
           doneSrc = true
         }
-        if (line.includes('Multisig core: 2 peers, 2 fully downloaded') && !doneTgt) {
+        if (line.includes(`Multisig core: 2 peers, 2 fully downloaded, length: 3`) && !doneTgt) {
           tSeedTgt.pass('target core is fully downloaded and seeded')
           doneTgt = true
         }
       }
     })
 
-    const srcCopy2 = store2.get(srcCore.key)
-    await srcCopy2.ready()
     swarm2.join(srcCopy2.discoveryKey)
     srcCopy2.download({ start: 0, end: -1 })
 
@@ -1131,8 +1135,6 @@ test('seed cmd - core', async (t) => {
     swarm3.join(srcCopy3.discoveryKey)
     srcCopy3.download({ start: 0, end: -1 })
 
-    const tgtCopy4 = store4.get(idEnc.decode(tgtCoreKey))
-    await tgtCopy4.ready()
     swarm4.join(tgtCopy4.discoveryKey)
     tgtCopy4.download({ start: 0, end: -1 })
 
@@ -1140,6 +1142,58 @@ test('seed cmd - core', async (t) => {
     await tgtCopy5.ready()
     swarm5.join(tgtCopy5.discoveryKey)
     tgtCopy5.download({ start: 0, end: -1 })
+
+    await tSeedSrc
+    await tSeedTgt
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+
+  {
+    const tSeedSrc = t.test('Seed source core')
+    tSeedSrc.plan(1)
+    const tSeedTgt = t.test('Seed target core')
+    tSeedTgt.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrc = false
+    let doneTgt = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes(`Source core: 3 peers, 3 fully downloaded, length: 5`) && !doneSrc) {
+          tSeedSrc.pass('source core is fully downloaded and seeded')
+          doneSrc = true
+        }
+        if (line.includes(`Multisig core: 2 peers, 2 fully downloaded, length: 3`) && !doneTgt) {
+          tSeedTgt.pass('target core is fully downloaded and seeded')
+          doneTgt = true
+        }
+      }
+    })
+
+    await srcCore.append(b4a.from('content 3'))
+    await srcCore.append(b4a.from('content 4'))
 
     await tSeedSrc
     await tSeedTgt
