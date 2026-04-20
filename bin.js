@@ -212,26 +212,32 @@ async function commit() {
 
 async function seed({ minFullCopies = 2 } = {}) {
   const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  const multisig = new Multisig(store, swarm)
+  if (goodbye.exiting) return
 
+  const multisig = new Multisig(store, swarm)
   console.log('\nSeeding now ~ Press Ctrl+C to exit\n')
 
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
     await srcCore.ready()
+    if (goodbye.exiting) return
     swarm.join(srcCore.discoveryKey)
     await waitSeeding(srcCore, { label: 'Source', minFullCopies })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     await srcDrive.ready()
+    if (goodbye.exiting) return
     swarm.join(srcDrive.discoveryKey)
     await waitSeeding(srcDrive.db.core, { label: 'Source db', minFullCopies })
+    if (goodbye.exiting) return
     await waitSeeding(srcDrive.blobs.core, { label: 'Source blobs', minFullCopies })
   }
+  if (goodbye.exiting) return
 
   if (type === 'core') {
     const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
     await core.ready()
+    if (goodbye.exiting) return
     swarm.join(core.discoveryKey)
     await waitSeeding(core, { label: 'Target', minFullCopies })
   } else {
@@ -239,9 +245,12 @@ async function seed({ minFullCopies = 2 } = {}) {
       quorum
     })
     await core.ready()
+    if (goodbye.exiting) return
     swarm.join(core.discoveryKey)
     await waitSeeding(core, { label: 'Target db', minFullCopies })
+    if (goodbye.exiting) return
     await blobsCore.ready()
+    if (goodbye.exiting) return
     swarm.join(blobsCore.discoveryKey)
     await waitSeeding(blobsCore, { label: 'Target blobs', minFullCopies })
   }
@@ -388,40 +397,40 @@ function wrapErrHandler(func) {
 
 async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
   const treeHash = idEnc.normalize(await core.treeHash())
+  if (goodbye.exiting) return
+
   console.log(`${label} core:`)
   console.log(`  key:      ${idEnc.normalize(core.key)}`)
   console.log(`  keyHex:   ${core.key.toString('hex')}`)
   console.log(`  length:   ${core.length}`)
   console.log(`  treeHash: ${treeHash}\n`)
 
-  await new Promise((resolve) => {
-    let shuttingDown = false
-    goodbye(() => {
-      shuttingDown = true
+  let done = false
+  async function run() {
+    console.log(`\n[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
+    let tgtFullCopies = 0
+    for (const p of core.peers) {
+      if (goodbye.exiting) break
+      if (tgtFullCopies >= minFullCopies) {
+        console.log(`\nDone seeding ${label} core ~ Sufficient peers have been fully copied\n`)
+        done = true
+        break
+      }
+      if (p.remoteContiguousLength >= core.length) tgtFullCopies++
+      const peerKey = p.remotePublicKey ? idEnc.normalize(p.remotePublicKey) : 'unknown'
+      console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
+    }
+    await new Promise((resolve) => {
+      const timeout = setTimeout(resolve, 1000)
+      goodbye(() => {
+        clearTimeout(timeout)
+        resolve()
+      })
     })
-    const interval = setInterval(() => {
-      if (!core.peers.length) {
-        console.log(`[${new Date().toLocaleString()}] No peers connected`)
-        return
-      }
-
-      console.log(`\n[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
-      let tgtFullCopies = 0
-      for (const p of core.peers) {
-        if (shuttingDown) break
-        if (tgtFullCopies >= minFullCopies) {
-          clearInterval(interval)
-          console.log(`\nDone seeding ${label} core ~ Sufficient peers have been fully copied\n`)
-          resolve()
-          break
-        }
-        if (p.remoteContiguousLength === core.length) tgtFullCopies++
-        const peerKey = p.remotePublicKey ? idEnc.normalize(p.remotePublicKey) : 'unknown'
-        console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
-      }
-    }, 1000)
-    goodbye(() => clearInterval(interval))
-  })
+    if (goodbye.exiting) return
+    if (!done) await run()
+  }
+  await run()
 }
 
 cmd.parse()
