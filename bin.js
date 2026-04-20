@@ -13,6 +13,7 @@ const z32 = require('z32')
 
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
+const DEFAULT_SEED_LOG_INTERVAL = 15000
 
 const cmdLink = command('link', description('Create multisig key'), wrapErrHandler(link))
 
@@ -55,6 +56,9 @@ const cmdCommit = command(
 const cmdSeed = command(
   'seed',
   description('Seed both the source and multisig cores/drives'),
+  flag('--log-interval <logInterval>', 'Interval in ms to log replication status').default(
+    DEFAULT_SEED_LOG_INTERVAL
+  ),
   wrapErrHandler(seed)
 )
 
@@ -210,54 +214,73 @@ async function commit() {
   console.info(`${type} key: ${destKey}`)
 }
 
-async function seed({ minFullCopies = 2 } = {}) {
+async function seed() {
+  const logInterval = cmdSeed.flags.logInterval
+    ? +cmdSeed.flags.logInterval
+    : DEFAULT_SEED_LOG_INTERVAL
   const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
-  if (goodbye.exiting) return
 
   const multisig = new Multisig(store, swarm)
   console.log('\nSeeding now ~ Press Ctrl+C to exit\n')
 
+  const allCores = []
+
   if (type === 'core') {
-    const srcCore = store.get({ key: idEnc.decode(srcKey) })
-    await srcCore.ready()
-    if (goodbye.exiting) return
-    swarm.join(srcCore.discoveryKey)
-    await waitSeeding(srcCore, { label: 'Source', minFullCopies })
+    const core = store.get({ key: idEnc.decode(srcKey) })
+    await core.ready()
+    swarm.join(core.discoveryKey)
+    core.download({ start: 0, end: -1 })
+    allCores.push({ core, label: 'Source' })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     await srcDrive.ready()
-    if (goodbye.exiting) return
     swarm.join(srcDrive.discoveryKey)
-    await waitSeeding(srcDrive.db.core, { label: 'Source db', minFullCopies })
-    if (goodbye.exiting) return
-    await waitSeeding(srcDrive.blobs.core, { label: 'Source blobs', minFullCopies })
+    srcDrive.db.core.download({ start: 0, end: -1 })
+    await srcDrive.getBlobs()
+    srcDrive.blobs.core.download({ start: 0, end: -1 })
+    allCores.push(
+      { core: srcDrive.db.core, label: 'Source DB' },
+      { core: srcDrive.blobs.core, label: 'Source Blobs' }
+    )
   }
-  if (goodbye.exiting) return
 
   if (type === 'core') {
     const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-    if (goodbye.exiting) return
-    await core.ready()
-    if (goodbye.exiting) return
     swarm.join(core.discoveryKey)
-    await waitSeeding(core, { label: 'Target', minFullCopies })
+    core.download({ start: 0, end: -1 })
+    allCores.push({ core, label: 'Multisig' })
   } else {
     const { manifest, core, blobsCore } = await multisig.createDrive(publicKeys, namespace, {
       quorum
     })
-    if (goodbye.exiting) return
-    await core.ready()
-    if (goodbye.exiting) return
     swarm.join(core.discoveryKey)
-    await waitSeeding(core, { label: 'Target db', minFullCopies })
-    if (goodbye.exiting) return
+    core.download({ start: 0, end: -1 })
     await blobsCore.ready()
-    if (goodbye.exiting) return
     swarm.join(blobsCore.discoveryKey)
-    await waitSeeding(blobsCore, { label: 'Target blobs', minFullCopies })
+    blobsCore.download({ start: 0, end: -1 })
+    allCores.push({ core, label: 'Multisig DB' }, { core: blobsCore, label: 'Multisig Blobs' })
   }
 
-  goodbye.exit()
+  for (const { core, label } of allCores) {
+    console.log(`${label} core:`)
+    console.log(`  key:      ${idEnc.normalize(core.key)}`)
+    console.log(`  keyHex:   ${core.key.toString('hex')}`)
+    console.log(`  length:   ${core.length}`)
+    console.log(`  treeHash: ${idEnc.normalize(await core.treeHash())}\n`)
+  }
+
+  const interval = setInterval(() => {
+    allCores.forEach(({ core, label }) => {
+      const peers = core.peers.length
+      let fullyDownloadedPeers = 0
+      for (const p of core.peers) {
+        if (p.remoteContiguousLength >= core.length) fullyDownloadedPeers++
+      }
+      console.log(`${label} core: ${peers} peers, ${fullyDownloadedPeers} fully downloaded`)
+    })
+    console.log()
+  }, logInterval)
+  goodbye(() => clearInterval(interval))
 }
 
 function setupProgressLogs(req, name, firstCommit) {
@@ -395,44 +418,6 @@ function wrapErrHandler(func) {
     }
   }
   return res
-}
-
-async function waitSeeding(core, { label = '', minFullCopies = 2 } = {}) {
-  const treeHash = idEnc.normalize(await core.treeHash())
-  if (goodbye.exiting) return
-
-  console.log(`${label} core:`)
-  console.log(`  key:      ${idEnc.normalize(core.key)}`)
-  console.log(`  keyHex:   ${core.key.toString('hex')}`)
-  console.log(`  length:   ${core.length}`)
-  console.log(`  treeHash: ${treeHash}\n`)
-
-  let done = false
-  async function run() {
-    console.log(`\n[${new Date().toLocaleString()}] Remote peers: ${core.peers.length}`)
-    let tgtFullCopies = 0
-    for (const p of core.peers) {
-      if (goodbye.exiting) break
-      if (tgtFullCopies >= minFullCopies) {
-        console.log(`\nDone seeding ${label} core ~ Sufficient peers have been fully copied\n`)
-        done = true
-        break
-      }
-      if (p.remoteContiguousLength >= core.length) tgtFullCopies++
-      const peerKey = p.remotePublicKey ? idEnc.normalize(p.remotePublicKey) : 'unknown'
-      console.log(`  ${peerKey}: ${p.remoteContiguousLength} / ${core.length}`)
-    }
-    await new Promise((resolve) => {
-      const timeout = setTimeout(resolve, 1000)
-      goodbye(() => {
-        clearTimeout(timeout)
-        resolve()
-      })
-    })
-    if (goodbye.exiting) return
-    if (!done) await run()
-  }
-  await run()
 }
 
 cmd.parse()
