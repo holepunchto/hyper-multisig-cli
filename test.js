@@ -18,7 +18,7 @@ const sodium = require('sodium-native')
 const { isBare } = require('which-runtime')
 const z32 = require('z32')
 
-const DEBUG = true
+const DEBUG = false
 const EXECUTABLE = path.join(__dirname, isBare ? 'bin-bare.js' : 'bin.js')
 
 test('link', async (t) => {
