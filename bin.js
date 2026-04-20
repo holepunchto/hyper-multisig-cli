@@ -206,14 +206,14 @@ async function commit() {
 function setupProgressLogs(req, name, firstCommit) {
   req.on('verify-committable-start', (srcKey, tgtKey) => {
     console.log(
-      `Verifying the ${name} is safe to commit (source ${idEnc.normalize(srcKey)} to multisig target ${idEnc.normalize(tgtKey)})`
+      `Verifying the ${name} is safe to commit: source ${idEnc.normalize(srcKey)} (hex: ${srcKey.toString('hex')}) to multisig target ${idEnc.normalize(tgtKey)} (hex: ${tgtKey.toString('hex')})`
     )
   })
   req.on('commit-start', () => {
     console.log(`Committing the ${name}...`)
   })
   req.on('verify-committed-start', (key) => {
-    console.log(`Committed the ${name} (key ${idEnc.normalize(key)})`)
+    console.log(`Committed the ${name}, key ${idEnc.normalize(key)} (hex: ${key.toString('hex')})`)
     console.log('Waiting for remote seeders to pick up the changes...')
     if (firstCommit) {
       console.log(
@@ -228,6 +228,7 @@ function printRequest(request) {
   const reqStr = z32.encode(request)
   const reqMsg = {
     key: runner.id,
+    keyHex: runner.key.toString('hex'),
     length: runner.length,
     treeHash: idEnc.normalize(runner.treeHash)
   }
@@ -297,11 +298,12 @@ async function loadConfig(configPath, opts = {}) {
   if (bootstrap) console.info(`Using non-default bootstrap`)
 
   if (multisigKey) {
-    const calculatedKey = idEnc.normalize(Multisig.getCoreKey(publicKeys, namespace, { quorum }))
+    const calculatedKeyBuffer = Multisig.getCoreKey(publicKeys, namespace, { quorum })
+    const calculatedKey = idEnc.normalize(calculatedKeyBuffer)
     const passedInKey = idEnc.normalize(multisigKey)
     if (passedInKey !== calculatedKey) {
       throw new Error(
-        `multisigKey does not correspond to the key generated from the config (expected ${calculatedKey})`
+        `multisigKey does not correspond to the key generated from the config, expected ${calculatedKey} (hex: ${calculatedKeyBuffer.toString('hex')})`
       )
     }
   }

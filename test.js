@@ -329,9 +329,9 @@ test('core request and sign CLI flow', async (t) => {
             coreKey = line.split('core key: ')[1]
           }
 
-          if (line.includes('Committed the core (key')) {
+          if (line.includes('Committed the core, key')) {
             if (DEBUG) console.log('REMOTED BEGIN DOWNLOADING TARGET')
-            const key = idEnc.decode(line.split('(key ')[1].slice(0, 52))
+            const key = idEnc.decode(line.split(', key ')[1].slice(0, 52))
             const tgtCopy = store2.get(key)
             await tgtCopy.ready()
             swarm2.join(tgtCopy.discoveryKey)
@@ -743,9 +743,9 @@ test('drive request and sign CLI flow', async (t) => {
             driveKey = line.split('drive key: ')[1]
           }
 
-          if (line.includes('Committed the drive (key')) {
+          if (line.includes('Committed the drive, key')) {
             if (DEBUG) console.log('REMOTES BEGIN DOWNLOADING TARGET')
-            const key = idEnc.decode(line.split('(key ')[1].slice(0, 52))
+            const key = idEnc.decode(line.split(', key ')[1].slice(0, 52))
 
             const tgtCopy = new Hyperdrive(store2, key)
             await tgtCopy.ready()
@@ -1100,7 +1100,7 @@ test('validates multisigKey if set', async (t) => {
     t.is(status, 1, 'error status')
     t.ok(
       stderr.includes(
-        `multisigKey does not correspond to the key generated from the config (expected ${idEnc.normalize(multisigKey)})`
+        `multisigKey does not correspond to the key generated from the config, expected ${multisigKey} (hex: ${idEnc.decode(multisigKey).toString('hex')})`
       )
     )
   }
