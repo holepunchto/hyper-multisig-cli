@@ -244,20 +244,20 @@ async function seed() {
     await srcDrive.getBlobs()
     srcDrive.blobs.core.download({ start: 0, end: -1 })
 
-    const { manifest, core, blobsCore } = await multisig.createDrive(publicKeys, namespace, {
+    const { manifest, core: tgtCore, blobsCore: tgtBlobsCore } = await multisig.createDrive(publicKeys, namespace, {
       quorum
     })
-    swarm.join(core.discoveryKey)
-    core.download({ start: 0, end: -1 })
-    await blobsCore.ready()
-    swarm.join(blobsCore.discoveryKey)
-    blobsCore.download({ start: 0, end: -1 })
+    swarm.join(tgtCore.discoveryKey)
+    tgtCore.download({ start: 0, end: -1 })
+    await tgtBlobsCore.ready()
+    swarm.join(tgtBlobsCore.discoveryKey)
+    tgtBlobsCore.download({ start: 0, end: -1 })
 
     allCores.push(
       { core: srcDrive.db.core, label: 'Source DB' },
       { core: srcDrive.blobs.core, label: 'Source Blobs' },
-      { core, label: 'Multisig DB' },
-      { core: blobsCore, label: 'Multisig Blobs' }
+      { core: tgtCore, label: 'Multisig DB' },
+      { core: tgtBlobsCore, label: 'Multisig Blobs' }
     )
   }
 
