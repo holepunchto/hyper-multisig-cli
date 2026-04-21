@@ -230,7 +230,12 @@ async function seed() {
     await core.ready()
     swarm.join(core.discoveryKey)
     core.download({ start: 0, end: -1 })
-    allCores.push({ core, label: 'Source' })
+
+    const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
+    swarm.join(core.discoveryKey)
+    core.download({ start: 0, end: -1 })
+
+    allCores.push({ core, label: 'Source' }, { core, label: 'Multisig' })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     await srcDrive.ready()
@@ -238,18 +243,7 @@ async function seed() {
     srcDrive.db.core.download({ start: 0, end: -1 })
     await srcDrive.getBlobs()
     srcDrive.blobs.core.download({ start: 0, end: -1 })
-    allCores.push(
-      { core: srcDrive.db.core, label: 'Source DB' },
-      { core: srcDrive.blobs.core, label: 'Source Blobs' }
-    )
-  }
 
-  if (type === 'core') {
-    const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-    swarm.join(core.discoveryKey)
-    core.download({ start: 0, end: -1 })
-    allCores.push({ core, label: 'Multisig' })
-  } else {
     const { manifest, core, blobsCore } = await multisig.createDrive(publicKeys, namespace, {
       quorum
     })
@@ -258,7 +252,13 @@ async function seed() {
     await blobsCore.ready()
     swarm.join(blobsCore.discoveryKey)
     blobsCore.download({ start: 0, end: -1 })
-    allCores.push({ core, label: 'Multisig DB' }, { core: blobsCore, label: 'Multisig Blobs' })
+
+    allCores.push(
+      { core: srcDrive.db.core, label: 'Source DB' },
+      { core: srcDrive.blobs.core, label: 'Source Blobs' },
+      { core, label: 'Multisig DB' },
+      { core: blobsCore, label: 'Multisig Blobs' }
+    )
   }
 
   for (const { core, label } of allCores) {
