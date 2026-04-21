@@ -239,6 +239,7 @@ async function seed() {
       const res = await multisig.createCore(publicKeys, namespace, { quorum })
       tgtCore = res.core
     }
+    swarm.join(tgtCore.discoveryKey)
     tgtCore.download({ start: 0, end: -1 })
 
     allCores.push({ core: srcCore, label: 'Source' }, { core: tgtCore, label: 'Multisig' })
@@ -264,6 +265,7 @@ async function seed() {
       tgtBlobsCore = res.blobsCore
       await tgtBlobsCore.ready()
     }
+    swarm.join(tgtCore.discoveryKey)
     tgtCore.download({ start: 0, end: -1 })
     tgtBlobsCore.download({ start: 0, end: -1 })
 
