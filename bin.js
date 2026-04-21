@@ -244,7 +244,11 @@ async function seed() {
     await srcDrive.getBlobs()
     srcDrive.blobs.core.download({ start: 0, end: -1 })
 
-    const { manifest, core: tgtCore, blobsCore: tgtBlobsCore } = await multisig.createDrive(publicKeys, namespace, {
+    const {
+      manifest,
+      core: tgtCore,
+      blobsCore: tgtBlobsCore
+    } = await multisig.createDrive(publicKeys, namespace, {
       quorum
     })
     swarm.join(tgtCore.discoveryKey)
