@@ -975,7 +975,7 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
-test.solo('seed cmd - core', async (t) => {
+test('seed cmd - core', async (t) => {
   const {
     bootstrap,
     store,
@@ -1331,7 +1331,7 @@ test.solo('seed cmd - core', async (t) => {
   }
 })
 
-test.solo('seed cmd - drive', async (t) => {
+test('seed cmd - drive', async (t) => {
   const {
     bootstrap,
     store,
