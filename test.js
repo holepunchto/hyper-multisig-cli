@@ -975,7 +975,7 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
-test('seed cmd - core', async (t) => {
+test.solo('seed cmd - core', async (t) => {
   const {
     bootstrap,
     store,
@@ -991,6 +991,7 @@ test('seed cmd - core', async (t) => {
   } = await setup(t, 5)
 
   const srcCore = await setupCore(t, store, swarm)
+  const discoveryKey = srcCore.discoveryKey
 
   const dir = await t.tmp()
   const cliStorageDir = path.join(dir, 'cli-storage')
@@ -1127,20 +1128,20 @@ test('seed cmd - core', async (t) => {
       }
     })
 
-    swarm2.join(srcCopy2.discoveryKey)
+    swarm2.join(discoveryKey)
     srcCopy2.download({ start: 0, end: -1 })
 
     const srcCopy3 = store3.get(srcCore.key)
     await srcCopy3.ready()
-    swarm3.join(srcCopy3.discoveryKey)
+    swarm3.join(discoveryKey)
     srcCopy3.download({ start: 0, end: -1 })
 
-    swarm4.join(tgtCopy4.discoveryKey)
+    swarm4.join(discoveryKey)
     tgtCopy4.download({ start: 0, end: -1 })
 
     const tgtCopy5 = store5.get(idEnc.decode(tgtCoreKey))
     await tgtCopy5.ready()
-    swarm5.join(tgtCopy5.discoveryKey)
+    swarm5.join(discoveryKey)
     tgtCopy5.download({ start: 0, end: -1 })
 
     await tSeedSrc
@@ -1330,7 +1331,7 @@ test('seed cmd - core', async (t) => {
   }
 })
 
-test('seed cmd - drive', async (t) => {
+test.solo('seed cmd - drive', async (t) => {
   const {
     bootstrap,
     store,
@@ -1346,6 +1347,7 @@ test('seed cmd - drive', async (t) => {
   } = await setup(t, 5)
 
   const srcDrive = await setupDrive(t, store, swarm)
+  const discoveryKey = srcDrive.discoveryKey
   await srcDrive.getBlobs()
 
   const dir = await t.tmp()
@@ -1523,26 +1525,26 @@ test('seed cmd - drive', async (t) => {
       }
     })
 
-    swarm2.join(srcCopy2.discoveryKey)
+    swarm2.join(discoveryKey)
     await srcCopy2.getBlobs()
     srcCopy2.db.core.download({ start: 0, end: -1 })
     srcCopy2.blobs.core.download({ start: 0, end: -1 })
 
     const srcCopy3 = new Hyperdrive(store3, srcDrive.key)
     await srcCopy3.ready()
-    swarm3.join(srcCopy3.discoveryKey)
+    swarm3.join(discoveryKey)
     await srcCopy3.getBlobs()
     srcCopy3.db.core.download({ start: 0, end: -1 })
     srcCopy3.blobs.core.download({ start: 0, end: -1 })
 
-    swarm4.join(tgtCopy4.discoveryKey)
+    swarm4.join(discoveryKey)
     await tgtCopy4.getBlobs()
     tgtCopy4.db.core.download({ start: 0, end: -1 })
     tgtCopy4.blobs.core.download({ start: 0, end: -1 })
 
     const tgtCopy5 = new Hyperdrive(store5, idEnc.decode(tgtDriveKey))
     await tgtCopy5.ready()
-    swarm5.join(tgtCopy5.discoveryKey)
+    swarm5.join(discoveryKey)
     await tgtCopy5.getBlobs()
     tgtCopy5.db.core.download({ start: 0, end: -1 })
     tgtCopy5.blobs.core.download({ start: 0, end: -1 })
