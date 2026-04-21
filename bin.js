@@ -226,16 +226,16 @@ async function seed() {
   const allCores = []
 
   if (type === 'core') {
-    const core = store.get({ key: idEnc.decode(srcKey) })
-    await core.ready()
-    swarm.join(core.discoveryKey)
-    core.download({ start: 0, end: -1 })
+    const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    await srcCore.ready()
+    swarm.join(srcCore.discoveryKey)
+    srcCore.download({ start: 0, end: -1 })
 
-    const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-    swarm.join(core.discoveryKey)
-    core.download({ start: 0, end: -1 })
+    const { core: tgtCore } = await multisig.createCore(publicKeys, namespace, { quorum })
+    swarm.join(tgtCore.discoveryKey)
+    tgtCore.download({ start: 0, end: -1 })
 
-    allCores.push({ core, label: 'Source' }, { core, label: 'Multisig' })
+    allCores.push({ core: srcCore, label: 'Source' }, { core: tgtCore, label: 'Multisig' })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     await srcDrive.ready()
