@@ -975,6 +975,844 @@ test('drive request and sign CLI flow', async (t) => {
   }
 })
 
+test('seed cmd - core', async (t) => {
+  const {
+    bootstrap,
+    store,
+    swarm,
+    store2,
+    swarm2,
+    store3,
+    swarm3,
+    store4,
+    swarm4,
+    store5,
+    swarm5
+  } = await setup(t, 5)
+
+  const srcCore = await setupCore(t, store, swarm)
+  const discoveryKey = srcCore.discoveryKey
+
+  const dir = await t.tmp()
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const config = {
+    type: 'core',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcCore.key),
+    bootstrap
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  let request = null
+  {
+    const tRequest = t.test('Request')
+    tRequest.plan(2)
+
+    const proc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request',
+      '--force',
+      srcCore.length
+    ])
+    process.on('exit', () => proc.kill('SIGKILL'))
+    proc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during request')
+    })
+
+    const dec = new NewlineDecoder('utf-8')
+    proc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('hypercore-sign')) {
+          tRequest.pass('sign request created')
+          request = line.split('hypercore-sign ')[1]
+        }
+      }
+    })
+    proc.on('exit', (status) => tRequest.is(status, 0, 'request process exited cleanly'))
+    await tRequest
+  }
+
+  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+
+  let tgtCoreKey = null
+  {
+    const tCommit = t.test('Commit')
+    tCommit.plan(1)
+
+    const proc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'commit',
+      '--first-commit',
+      '--force-dangerous',
+      request,
+      ...responses
+    ])
+    process.on('exit', () => proc.kill('SIGKILL'))
+    proc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during commit')
+    })
+
+    const dec = new NewlineDecoder('utf-8')
+    proc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('core key:')) {
+          tCommit.pass('committed')
+          tgtCoreKey = line.split('core key: ')[1]
+        }
+      }
+    })
+
+    await tCommit
+    proc.kill('SIGINT')
+    await new Promise((resolve) => proc.on('exit', resolve))
+  }
+
+  const srcCopy2 = store2.get(srcCore.key)
+  await srcCopy2.ready()
+
+  const tgtCopy4 = store4.get(idEnc.decode(tgtCoreKey))
+  await tgtCopy4.ready()
+
+  {
+    const tSeedSrc = t.test('Seed source core')
+    tSeedSrc.plan(1)
+    const tSeedTgt = t.test('Seed target core')
+    tSeedTgt.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrc = false
+    let doneTgt = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes(`Source core: 3 peers, 3 fully downloaded, length: 3`) && !doneSrc) {
+          tSeedSrc.pass('source core is fully downloaded and seeded')
+          doneSrc = true
+        }
+        if (line.includes(`Multisig core: 2 peers, 2 fully downloaded, length: 3`) && !doneTgt) {
+          tSeedTgt.pass('target core is fully downloaded and seeded')
+          doneTgt = true
+        }
+      }
+    })
+
+    swarm2.join(discoveryKey)
+    srcCopy2.download({ start: 0, end: -1 })
+
+    const srcCopy3 = store3.get(srcCore.key)
+    await srcCopy3.ready()
+    swarm3.join(discoveryKey)
+    srcCopy3.download({ start: 0, end: -1 })
+
+    swarm4.join(discoveryKey)
+    tgtCopy4.download({ start: 0, end: -1 })
+
+    const tgtCopy5 = store5.get(idEnc.decode(tgtCoreKey))
+    await tgtCopy5.ready()
+    swarm5.join(discoveryKey)
+    tgtCopy5.download({ start: 0, end: -1 })
+
+    await tSeedSrc
+    await tSeedTgt
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+
+  {
+    const tSeedSrc = t.test('Seed source core')
+    tSeedSrc.plan(1)
+    const tSeedTgt = t.test('Seed target core')
+    tSeedTgt.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrc = false
+    let doneTgt = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes(`Source core: 3 peers, 3 fully downloaded, length: 5`) && !doneSrc) {
+          tSeedSrc.pass('source core is fully downloaded and seeded')
+          doneSrc = true
+        }
+        if (line.includes(`Multisig core: 2 peers, 2 fully downloaded, length: 3`) && !doneTgt) {
+          tSeedTgt.pass('target core is fully downloaded and seeded')
+          doneTgt = true
+        }
+      }
+    })
+
+    await srcCore.append(b4a.from('content 3'))
+    await srcCore.append(b4a.from('content 4'))
+
+    await tSeedSrc
+    await tSeedTgt
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+
+  {
+    let request2 = null
+    {
+      const tRequest = t.test('Request')
+      tRequest.plan(2)
+
+      const proc = spawn(process.execPath, [
+        EXECUTABLE,
+        '--config',
+        configLoc,
+        '--storage',
+        cliStorageDir,
+        'request',
+        srcCore.length
+      ])
+      process.on('exit', () => proc.kill('SIGKILL'))
+      proc.stderr.on('data', (d) => {
+        console.error(d.toString())
+        t.fail('no stderr expected during request')
+      })
+
+      const dec = new NewlineDecoder('utf-8')
+      proc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+        for (const line of dec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequest.pass('sign request created')
+            request2 = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+      proc.on('exit', (status) => tRequest.is(status, 0, 'request process exited cleanly'))
+      await tRequest
+    }
+
+    const responses2 = signers
+      .slice(0, 2)
+      .map((signer) => signResponse(z32.decode(request2), signer))
+
+    let tgtCoreKey2 = null
+    {
+      const tCommit = t.test('Commit')
+      tCommit.plan(1)
+
+      const proc = spawn(process.execPath, [
+        EXECUTABLE,
+        '--config',
+        configLoc,
+        '--storage',
+        cliStorageDir,
+        'commit',
+        request2,
+        ...responses2
+      ])
+      process.on('exit', () => proc.kill('SIGKILL'))
+      proc.stderr.on('data', (d) => {
+        console.error(d.toString())
+        t.fail('no stderr expected during commit')
+      })
+
+      const dec = new NewlineDecoder('utf-8')
+      proc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+        for (const line of dec.push(d)) {
+          if (line.includes('core key:')) {
+            tCommit.pass('committed')
+            tgtCoreKey2 = line.split('core key: ')[1]
+          }
+        }
+      })
+
+      await tCommit
+      proc.kill('SIGINT')
+      await new Promise((resolve) => proc.on('exit', resolve))
+    }
+
+    const tSeedSrc = t.test('Seed source core')
+    tSeedSrc.plan(1)
+    const tSeedTgt = t.test('Seed target core')
+    tSeedTgt.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrc = false
+    let doneTgt = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes(`Source core: 3 peers, 3 fully downloaded, length: 5`) && !doneSrc) {
+          tSeedSrc.pass('source core is fully downloaded and seeded')
+          doneSrc = true
+        }
+        if (line.includes(`Multisig core: 2 peers, 2 fully downloaded, length: 5`) && !doneTgt) {
+          tSeedTgt.pass('target core is fully downloaded and seeded')
+          doneTgt = true
+        }
+      }
+    })
+
+    await tSeedSrc
+    await tSeedTgt
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+})
+
+test('seed cmd - drive', async (t) => {
+  const {
+    bootstrap,
+    store,
+    swarm,
+    store2,
+    swarm2,
+    store3,
+    swarm3,
+    store4,
+    swarm4,
+    store5,
+    swarm5
+  } = await setup(t, 5)
+
+  const srcDrive = await setupDrive(t, store, swarm)
+  const discoveryKey = srcDrive.discoveryKey
+  await srcDrive.getBlobs()
+
+  const dir = await t.tmp()
+  const cliStorageDir = path.join(dir, 'cli-storage')
+  await fs.mkdir(cliStorageDir)
+  const configLoc = path.join(dir, 'multisig.json')
+  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const config = {
+    type: 'drive',
+    namespace,
+    publicKeys,
+    srcKey: idEnc.normalize(srcDrive.key),
+    bootstrap
+  }
+  await fs.writeFile(configLoc, JSON.stringify(config))
+
+  const initialSrcDbLength = srcDrive.db.core.length
+  const initialSrcBlobsLength = srcDrive.blobs.core.length
+
+  let request = null
+  {
+    const tRequest = t.test('Request')
+    tRequest.plan(2)
+
+    const proc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'request',
+      '--force',
+      srcDrive.core.length
+    ])
+    process.on('exit', () => proc.kill('SIGKILL'))
+    proc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during request')
+    })
+
+    const dec = new NewlineDecoder('utf-8')
+    proc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('hypercore-sign')) {
+          tRequest.pass('sign request created')
+          request = line.split('hypercore-sign ')[1]
+        }
+      }
+    })
+    proc.on('exit', (status) => tRequest.is(status, 0, 'request process exited cleanly'))
+    await tRequest
+  }
+
+  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+
+  let tgtDriveKey = null
+  {
+    const tCommit = t.test('Commit')
+    tCommit.plan(1)
+
+    const proc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'commit',
+      '--first-commit',
+      '--force-dangerous',
+      request,
+      ...responses
+    ])
+    process.on('exit', () => proc.kill('SIGKILL'))
+    proc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during commit')
+    })
+
+    const dec = new NewlineDecoder('utf-8')
+    proc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (line.includes('drive key:')) {
+          tCommit.pass('committed')
+          tgtDriveKey = line.split('drive key: ')[1]
+        }
+      }
+    })
+
+    await tCommit
+    proc.kill('SIGINT')
+    await new Promise((resolve) => proc.on('exit', resolve))
+  }
+
+  let updatedSrcDbLength = initialSrcDbLength
+  let updatedSrcBlobsLength = initialSrcBlobsLength
+
+  const srcCopy2 = new Hyperdrive(store2, srcDrive.key)
+  await srcCopy2.ready()
+
+  const tgtCopy4 = new Hyperdrive(store4, idEnc.decode(tgtDriveKey))
+  await tgtCopy4.ready()
+
+  {
+    const tSeedSrcDb = t.test('Seed source db core')
+    tSeedSrcDb.plan(1)
+    const tSeedSrcBlobs = t.test('Seed source blobs core')
+    tSeedSrcBlobs.plan(1)
+    const tSeedTgtDb = t.test('Seed target db core')
+    tSeedTgtDb.plan(1)
+    const tSeedTgtBlobs = t.test('Seed target blobs core')
+    tSeedTgtBlobs.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrcDb = false
+    let doneSrcBlobs = false
+    let doneTgtDb = false
+    let doneTgtBlobs = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (
+          line.includes(
+            `Source DB core: 3 peers, 3 fully downloaded, length: ${initialSrcDbLength}`
+          ) &&
+          !doneSrcDb
+        ) {
+          tSeedSrcDb.pass('source db core is fully downloaded and seeded')
+          doneSrcDb = true
+        }
+        if (
+          line.includes(
+            `Source Blobs core: 3 peers, 3 fully downloaded, length: ${initialSrcBlobsLength}`
+          ) &&
+          !doneSrcBlobs
+        ) {
+          tSeedSrcBlobs.pass('source blobs core is fully downloaded and seeded')
+          doneSrcBlobs = true
+        }
+        if (
+          line.includes(
+            `Multisig DB core: 2 peers, 2 fully downloaded, length: ${initialSrcDbLength}`
+          ) &&
+          !doneTgtDb
+        ) {
+          tSeedTgtDb.pass('target db core is fully downloaded and seeded')
+          doneTgtDb = true
+        }
+        if (
+          line.includes(
+            `Multisig Blobs core: 2 peers, 2 fully downloaded, length: ${initialSrcBlobsLength}`
+          ) &&
+          !doneTgtBlobs
+        ) {
+          tSeedTgtBlobs.pass('target blobs core is fully downloaded and seeded')
+          doneTgtBlobs = true
+        }
+      }
+    })
+
+    swarm2.join(discoveryKey)
+    await srcCopy2.getBlobs()
+    srcCopy2.db.core.download({ start: 0, end: -1 })
+    srcCopy2.blobs.core.download({ start: 0, end: -1 })
+
+    const srcCopy3 = new Hyperdrive(store3, srcDrive.key)
+    await srcCopy3.ready()
+    swarm3.join(discoveryKey)
+    await srcCopy3.getBlobs()
+    srcCopy3.db.core.download({ start: 0, end: -1 })
+    srcCopy3.blobs.core.download({ start: 0, end: -1 })
+
+    swarm4.join(discoveryKey)
+    await tgtCopy4.getBlobs()
+    tgtCopy4.db.core.download({ start: 0, end: -1 })
+    tgtCopy4.blobs.core.download({ start: 0, end: -1 })
+
+    const tgtCopy5 = new Hyperdrive(store5, idEnc.decode(tgtDriveKey))
+    await tgtCopy5.ready()
+    swarm5.join(discoveryKey)
+    await tgtCopy5.getBlobs()
+    tgtCopy5.db.core.download({ start: 0, end: -1 })
+    tgtCopy5.blobs.core.download({ start: 0, end: -1 })
+
+    await tSeedSrcDb
+    await tSeedSrcBlobs
+    await tSeedTgtDb
+    await tSeedTgtBlobs
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+
+  {
+    const tSeedSrcDb = t.test('Seed source db core')
+    tSeedSrcDb.plan(1)
+    const tSeedSrcBlobs = t.test('Seed source blobs core')
+    tSeedSrcBlobs.plan(1)
+    const tSeedTgtDb = t.test('Seed target db core')
+    tSeedTgtDb.plan(1)
+    const tSeedTgtBlobs = t.test('Seed target blobs core')
+    tSeedTgtBlobs.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrcDb = false
+    let doneSrcBlobs = false
+    let doneTgtDb = false
+    let doneTgtBlobs = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (
+          line.includes(
+            `Source DB core: 3 peers, 3 fully downloaded, length: ${updatedSrcDbLength}`
+          ) &&
+          !doneSrcDb
+        ) {
+          tSeedSrcDb.pass('source db core is fully downloaded and seeded')
+          doneSrcDb = true
+        }
+        if (
+          line.includes(
+            `Source Blobs core: 3 peers, 3 fully downloaded, length: ${updatedSrcBlobsLength}`
+          ) &&
+          !doneSrcBlobs
+        ) {
+          tSeedSrcBlobs.pass('source blobs core is fully downloaded and seeded')
+          doneSrcBlobs = true
+        }
+        if (
+          line.includes(
+            `Multisig DB core: 2 peers, 2 fully downloaded, length: ${initialSrcDbLength}`
+          ) &&
+          !doneTgtDb
+        ) {
+          tSeedTgtDb.pass('target db core is fully downloaded and seeded')
+          doneTgtDb = true
+        }
+        if (
+          line.includes(
+            `Multisig Blobs core: 2 peers, 2 fully downloaded, length: ${initialSrcBlobsLength}`
+          ) &&
+          !doneTgtBlobs
+        ) {
+          tSeedTgtBlobs.pass('target blobs core is fully downloaded and seeded')
+          doneTgtBlobs = true
+        }
+      }
+    })
+
+    await srcDrive.put('/file4', 'file4 content')
+    updatedSrcDbLength = srcDrive.db.core.length
+    updatedSrcBlobsLength = srcDrive.blobs.core.length
+
+    await tSeedSrcDb
+    await tSeedSrcBlobs
+    await tSeedTgtDb
+    await tSeedTgtBlobs
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+
+  {
+    let request2 = null
+    {
+      const tRequest = t.test('Request')
+      tRequest.plan(2)
+
+      const proc = spawn(process.execPath, [
+        EXECUTABLE,
+        '--config',
+        configLoc,
+        '--storage',
+        cliStorageDir,
+        'request',
+        srcDrive.core.length
+      ])
+      process.on('exit', () => proc.kill('SIGKILL'))
+      proc.stderr.on('data', (d) => {
+        console.error(d.toString())
+        t.fail('no stderr expected during request')
+      })
+
+      const dec = new NewlineDecoder('utf-8')
+      proc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+        for (const line of dec.push(d)) {
+          if (line.includes('hypercore-sign')) {
+            tRequest.pass('sign request created')
+            request2 = line.split('hypercore-sign ')[1]
+          }
+        }
+      })
+      proc.on('exit', (status) => tRequest.is(status, 0, 'request process exited cleanly'))
+      await tRequest
+    }
+
+    const responses2 = signers
+      .slice(0, 2)
+      .map((signer) => signResponse(z32.decode(request2), signer))
+
+    let tgtDriveKey2 = null
+    {
+      const tCommit = t.test('Commit')
+      tCommit.plan(1)
+
+      const proc = spawn(process.execPath, [
+        EXECUTABLE,
+        '--config',
+        configLoc,
+        '--storage',
+        cliStorageDir,
+        'commit',
+        request2,
+        ...responses2
+      ])
+      process.on('exit', () => proc.kill('SIGKILL'))
+      proc.stderr.on('data', (d) => {
+        console.error(d.toString())
+        t.fail('no stderr expected during commit')
+      })
+
+      const dec = new NewlineDecoder('utf-8')
+      proc.stdout.on('data', (d) => {
+        if (DEBUG) console.log(d.toString())
+        for (const line of dec.push(d)) {
+          if (line.includes('drive key:')) {
+            tCommit.pass('committed')
+            tgtDriveKey2 = line.split('drive key: ')[1]
+          }
+        }
+      })
+
+      await tCommit
+      proc.kill('SIGINT')
+      await new Promise((resolve) => proc.on('exit', resolve))
+    }
+
+    t.is(tgtDriveKey2, tgtDriveKey, 'second commit keeps the same multisig drive key')
+
+    const tSeedSrcDb = t.test('Seed source db core')
+    tSeedSrcDb.plan(1)
+    const tSeedSrcBlobs = t.test('Seed source blobs core')
+    tSeedSrcBlobs.plan(1)
+    const tSeedTgtDb = t.test('Seed target db core')
+    tSeedTgtDb.plan(1)
+    const tSeedTgtBlobs = t.test('Seed target blobs core')
+    tSeedTgtBlobs.plan(1)
+
+    const seedProc = spawn(process.execPath, [
+      EXECUTABLE,
+      '--config',
+      configLoc,
+      '--storage',
+      cliStorageDir,
+      'seed',
+      '--log-interval',
+      '100'
+    ])
+    process.on('exit', () => seedProc.kill('SIGKILL'))
+    seedProc.stderr.on('data', (d) => {
+      console.error(d.toString())
+      t.fail('no stderr expected during seed')
+    })
+
+    let doneSrcDb = false
+    let doneSrcBlobs = false
+    let doneTgtDb = false
+    let doneTgtBlobs = false
+    const dec = new NewlineDecoder('utf-8')
+    seedProc.stdout.on('data', (d) => {
+      if (DEBUG) console.log(d.toString())
+      for (const line of dec.push(d)) {
+        if (
+          line.includes(
+            `Source DB core: 3 peers, 3 fully downloaded, length: ${updatedSrcDbLength}`
+          ) &&
+          !doneSrcDb
+        ) {
+          tSeedSrcDb.pass('source db core is fully downloaded and seeded')
+          doneSrcDb = true
+        }
+        if (
+          line.includes(
+            `Source Blobs core: 3 peers, 3 fully downloaded, length: ${updatedSrcBlobsLength}`
+          ) &&
+          !doneSrcBlobs
+        ) {
+          tSeedSrcBlobs.pass('source blobs core is fully downloaded and seeded')
+          doneSrcBlobs = true
+        }
+        if (
+          line.includes(
+            `Multisig DB core: 2 peers, 2 fully downloaded, length: ${updatedSrcDbLength}`
+          ) &&
+          !doneTgtDb
+        ) {
+          tSeedTgtDb.pass('target db core is fully downloaded and seeded')
+          doneTgtDb = true
+        }
+        if (
+          line.includes(
+            `Multisig Blobs core: 2 peers, 2 fully downloaded, length: ${updatedSrcBlobsLength}`
+          ) &&
+          !doneTgtBlobs
+        ) {
+          tSeedTgtBlobs.pass('target blobs core is fully downloaded and seeded')
+          doneTgtBlobs = true
+        }
+      }
+    })
+
+    await tSeedSrcDb
+    await tSeedSrcBlobs
+    await tSeedTgtDb
+    await tSeedTgtBlobs
+
+    const tShutdown = t.test('Shutdown seed')
+    tShutdown.plan(1)
+    seedProc.on('exit', () => tShutdown.pass('seed process shut down cleanly'))
+    seedProc.kill('SIGINT')
+    await tShutdown
+  }
+})
+
 test('clear errors for bad config', async (t) => {
   const dir = await t.tmp()
 

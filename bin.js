@@ -13,6 +13,7 @@ const z32 = require('z32')
 
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
+const DEFAULT_SEED_LOG_INTERVAL = 15000
 
 const cmdLink = command('link', description('Create multisig key'), wrapErrHandler(link))
 
@@ -52,6 +53,15 @@ const cmdCommit = command(
   wrapErrHandler(commit)
 )
 
+const cmdSeed = command(
+  'seed',
+  description('Seed both the source and multisig cores/drives'),
+  flag('--log-interval <logInterval>', 'Interval in ms to log replication status').default(
+    DEFAULT_SEED_LOG_INTERVAL
+  ),
+  wrapErrHandler(seed)
+)
+
 const cmd = command(
   'multisig',
   flag('--config|-c <config>', `Config file path (default to ${DEFAULT_CONFIG_PATH})`),
@@ -60,6 +70,7 @@ const cmd = command(
   cmdRequest,
   cmdVerify,
   cmdCommit,
+  cmdSeed,
   () => console.log(cmd.help())
 )
 
@@ -201,6 +212,93 @@ async function commit() {
   printCommit(res.manifest, res.quorum, res.result)
   const destKey = type === 'core' ? res.result.destCore.key : res.result.db.destCore.key
   console.info(`${type} key: ${destKey}`)
+}
+
+async function seed() {
+  const logInterval = cmdSeed.flags.logInterval
+    ? +cmdSeed.flags.logInterval
+    : DEFAULT_SEED_LOG_INTERVAL
+  const { type, publicKeys, namespace, srcKey, multisigKey, quorum, store, swarm } = await setup()
+
+  const multisig = new Multisig(store, swarm)
+  console.log('\nPreparing to seed ~ Press Ctrl+C to exit\n')
+
+  const allCores = []
+
+  if (type === 'core') {
+    const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    await srcCore.ready()
+    swarm.join(srcCore.discoveryKey)
+    srcCore.download({ start: 0, end: -1 })
+
+    let tgtCore
+    if (multisigKey) {
+      tgtCore = store.get({ key: idEnc.decode(multisigKey) })
+      await tgtCore.ready()
+    } else {
+      const res = await multisig.createCore(publicKeys, namespace, { quorum })
+      tgtCore = res.core
+    }
+    swarm.join(tgtCore.discoveryKey)
+    tgtCore.download({ start: 0, end: -1 })
+
+    allCores.push({ core: srcCore, label: 'Source' }, { core: tgtCore, label: 'Multisig' })
+  } else {
+    const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    await srcDrive.ready()
+    swarm.join(srcDrive.discoveryKey)
+    srcDrive.db.core.download({ start: 0, end: -1 })
+    await srcDrive.getBlobs()
+    srcDrive.blobs.core.download({ start: 0, end: -1 })
+
+    let tgtCore
+    let tgtBlobsCore
+    if (multisigKey) {
+      const tgtDrive = new Hyperdrive(store, idEnc.decode(multisigKey))
+      await tgtDrive.ready()
+      tgtCore = tgtDrive.db.core
+      await tgtDrive.getBlobs()
+      tgtBlobsCore = tgtDrive.blobs.core
+    } else {
+      const res = await multisig.createDrive(publicKeys, namespace, { quorum })
+      tgtCore = res.core
+      tgtBlobsCore = res.blobsCore
+      await tgtBlobsCore.ready()
+    }
+    swarm.join(tgtCore.discoveryKey)
+    tgtCore.download({ start: 0, end: -1 })
+    tgtBlobsCore.download({ start: 0, end: -1 })
+
+    allCores.push(
+      { core: srcDrive.db.core, label: 'Source DB' },
+      { core: srcDrive.blobs.core, label: 'Source Blobs' },
+      { core: tgtCore, label: 'Multisig DB' },
+      { core: tgtBlobsCore, label: 'Multisig Blobs' }
+    )
+  }
+
+  for (const { core, label } of allCores) {
+    console.log(`${label} core:`)
+    console.log(`  key:      ${idEnc.normalize(core.key)}`)
+    console.log(`  keyHex:   ${core.key.toString('hex')}`)
+    console.log(`  length:   ${core.length}`)
+    console.log(`  treeHash: ${idEnc.normalize(await core.treeHash())}\n`)
+  }
+
+  const interval = setInterval(() => {
+    allCores.forEach(({ core, label }) => {
+      const peers = core.peers.length
+      let fullyDownloadedPeers = 0
+      for (const p of core.peers) {
+        if (p.remoteContiguousLength >= core.length) fullyDownloadedPeers++
+      }
+      console.log(
+        `${label} core: ${peers} peers, ${fullyDownloadedPeers} fully downloaded, length: ${core.length}`
+      )
+    })
+    console.log()
+  }, logInterval)
+  goodbye(() => clearInterval(interval))
 }
 
 function setupProgressLogs(req, name, firstCommit) {
