@@ -218,7 +218,7 @@ async function seed() {
   const logInterval = cmdSeed.flags.logInterval
     ? +cmdSeed.flags.logInterval
     : DEFAULT_SEED_LOG_INTERVAL
-  const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
+  const { type, publicKeys, namespace, srcKey, multisigKey, quorum, store, swarm } = await setup()
 
   const multisig = new Multisig(store, swarm)
   console.log('\nPreparing to seed ~ Press Ctrl+C to exit\n')
@@ -231,7 +231,14 @@ async function seed() {
     swarm.join(srcCore.discoveryKey)
     srcCore.download({ start: 0, end: -1 })
 
-    const { core: tgtCore } = await multisig.createCore(publicKeys, namespace, { quorum })
+    let tgtCore
+    if (multisigKey) {
+      tgtCore = store.get({ key: idEnc.decode(multisigKey) })
+      await tgtCore.ready()
+    } else {
+      const res = await multisig.createCore(publicKeys, namespace, { quorum })
+      tgtCore = res.core
+    }
     tgtCore.download({ start: 0, end: -1 })
 
     allCores.push({ core: srcCore, label: 'Source' }, { core: tgtCore, label: 'Multisig' })
@@ -243,15 +250,21 @@ async function seed() {
     await srcDrive.getBlobs()
     srcDrive.blobs.core.download({ start: 0, end: -1 })
 
-    const {
-      manifest,
-      core: tgtCore,
-      blobsCore: tgtBlobsCore
-    } = await multisig.createDrive(publicKeys, namespace, {
-      quorum
-    })
+    let tgtCore
+    let tgtBlobsCore
+    if (multisigKey) {
+      const tgtDrive = new Hyperdrive(store, idEnc.decode(multisigKey))
+      await tgtDrive.ready()
+      tgtCore = tgtDrive.db.core
+      await tgtDrive.getBlobs()
+      tgtBlobsCore = tgtDrive.blobs.core
+    } else {
+      const res = await multisig.createDrive(publicKeys, namespace, { quorum })
+      tgtCore = res.core
+      tgtBlobsCore = res.blobsCore
+      await tgtBlobsCore.ready()
+    }
     tgtCore.download({ start: 0, end: -1 })
-    await tgtBlobsCore.ready()
     tgtBlobsCore.download({ start: 0, end: -1 })
 
     allCores.push(
