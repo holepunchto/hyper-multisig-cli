@@ -221,7 +221,7 @@ async function seed() {
   const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
 
   const multisig = new Multisig(store, swarm)
-  console.log('\nSeeding now ~ Press Ctrl+C to exit\n')
+  console.log('\nPreparing to seed ~ Press Ctrl+C to exit\n')
 
   const allCores = []
 
