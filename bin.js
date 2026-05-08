@@ -329,7 +329,7 @@ function printRequest(request) {
     keyHex: runner.key.toString('hex'),
     length: runner.length,
     treeHash: idEnc.normalize(runner.treeHash),
-    treeHashHex: runner.treeHash.toString('hex'),
+    treeHashHex: runner.treeHash.toString('hex')
   }
   console.log('Request:', JSON.stringify(reqMsg, null, 2))
   console.log('To sign, run:', `\nhypercore-sign ${reqStr}`)
