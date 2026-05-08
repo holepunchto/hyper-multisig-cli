@@ -46,6 +46,7 @@ const cmdCommit = command(
     '--first-commit',
     'Set when this is the first commit to the multisig target, so it skips those checks'
   ),
+  flag('--skip-target-well-seeded', 'Skip checking multisig target is well seeded'),
   flag('--force-dangerous', 'Advanced option, it might break the core on misuse'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
@@ -178,7 +179,7 @@ async function verify() {
 async function commit() {
   const request = cmdCommit.args.request
   const responses = cmdCommit.rest || []
-  const { firstCommit, forceDangerous, peerUpdateTimeout } = cmdCommit.flags
+  const { firstCommit, skipTargetWellSeeded, forceDangerous, peerUpdateTimeout } = cmdCommit.flags
   if (!request || !responses?.length) throw new Error('Invalid command')
 
   console.info(`Committing request ${request}`)
@@ -192,6 +193,7 @@ async function commit() {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
       skipTargetChecks: firstCommit,
+      skipTargetWellSeeded,
       force: forceDangerous,
       peerUpdateTimeout: peerUpdateTimeout,
       quorum
@@ -200,6 +202,7 @@ async function commit() {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       skipTargetChecks: firstCommit,
+      skipTargetWellSeeded,
       force: forceDangerous,
       peerUpdateTimeout: peerUpdateTimeout,
       quorum
