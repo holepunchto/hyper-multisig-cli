@@ -8,7 +8,7 @@ const process = require('process')
 const crypto = require('hypercore-crypto')
 const idEnc = require('hypercore-id-encoding')
 const createTestnet = require('hyperdht/testnet')
-const CoreSign = require('hypercore-sign')
+const CoreSign = require('hypercore-sign-lib')
 const SignRequest = require('hypercore-signing-request')
 const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
@@ -30,7 +30,7 @@ test('link', async (t) => {
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
-  const { namespace, publicKeys } = setupMultisig(undefined, 3)
+  const { namespace, publicKeys } = await setupMultisig(undefined, 3)
   const config = {
     type: 'core',
     namespace,
@@ -87,7 +87,7 @@ test('link with custom quorum', async (t) => {
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
-  const { namespace, publicKeys } = setupMultisig(undefined, 5)
+  const { namespace, publicKeys } = await setupMultisig(undefined, 5)
   const quorum = 2
   const config = {
     type: 'core',
@@ -177,7 +177,7 @@ test('core request and sign CLI flow', async (t) => {
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
-  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const { namespace, publicKeys, signers } = await setupMultisig(undefined, 3)
   const config = {
     type: 'core',
     namespace,
@@ -230,7 +230,9 @@ test('core request and sign CLI flow', async (t) => {
   }
 
   t.is(SignRequest.decode(z32.decode(request)).version, 2, 'generates legacy requests') // expected to fail when we move to v3 requests. Make sure to major bump then.
-  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  const responses = await Promise.all(
+    signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  )
 
   {
     const verifyCoreProc = spawn(process.execPath, [
@@ -414,7 +416,9 @@ test('core request and sign CLI flow', async (t) => {
     await tRequestCore2
   }
 
-  const responses2 = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+  const responses2 = await Promise.all(
+    signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+  )
 
   // second verify (without --first-commit)
   {
@@ -575,7 +579,7 @@ test('drive request and sign CLI flow', async (t) => {
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
-  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const { namespace, publicKeys, signers } = await setupMultisig(undefined, 3)
   const config = {
     type: 'drive',
     namespace,
@@ -637,7 +641,9 @@ test('drive request and sign CLI flow', async (t) => {
   }
 
   t.is(SignRequest.decode(z32.decode(request)).version, 2, 'generates legacy requests') // expected to fail when we move to v3 requests. Make sure to major bump then.
-  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  const responses = await Promise.all(
+    signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  )
 
   {
     const verifyDriveProc = spawn(process.execPath, [
@@ -853,7 +859,9 @@ test('drive request and sign CLI flow', async (t) => {
     await tRequestDrive2
   }
 
-  const responses2 = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+  const responses2 = await Promise.all(
+    signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+  )
 
   // second verify (without --first-commit)
   {
@@ -997,7 +1005,7 @@ test('seed cmd - core', async (t) => {
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
-  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const { namespace, publicKeys, signers } = await setupMultisig(undefined, 3)
   const config = {
     type: 'core',
     namespace,
@@ -1042,7 +1050,9 @@ test('seed cmd - core', async (t) => {
     await tRequest
   }
 
-  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  const responses = await Promise.all(
+    signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  )
 
   let tgtCoreKey = null
   {
@@ -1241,9 +1251,9 @@ test('seed cmd - core', async (t) => {
       await tRequest
     }
 
-    const responses2 = signers
-      .slice(0, 2)
-      .map((signer) => signResponse(z32.decode(request2), signer))
+    const responses2 = await Promise.all(
+      signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+    )
 
     let tgtCoreKey2 = null
     {
@@ -1354,7 +1364,7 @@ test('seed cmd - drive', async (t) => {
   const cliStorageDir = path.join(dir, 'cli-storage')
   await fs.mkdir(cliStorageDir)
   const configLoc = path.join(dir, 'multisig.json')
-  const { namespace, publicKeys, signers } = setupMultisig(undefined, 3)
+  const { namespace, publicKeys, signers } = await setupMultisig(undefined, 3)
   const config = {
     type: 'drive',
     namespace,
@@ -1402,7 +1412,9 @@ test('seed cmd - drive', async (t) => {
     await tRequest
   }
 
-  const responses = signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  const responses = await Promise.all(
+    signers.slice(0, 2).map((signer) => signResponse(z32.decode(request), signer))
+  )
 
   let tgtDriveKey = null
   {
@@ -1685,9 +1697,9 @@ test('seed cmd - drive', async (t) => {
       await tRequest
     }
 
-    const responses2 = signers
-      .slice(0, 2)
-      .map((signer) => signResponse(z32.decode(request2), signer))
+    const responses2 = await Promise.all(
+      signers.slice(0, 2).map((signer) => signResponse(z32.decode(request2), signer))
+    )
 
     let tgtDriveKey2 = null
     {
@@ -2028,7 +2040,7 @@ async function setup(t, n = 1, network) {
   return res
 }
 
-function setupMultisig(namespace = 'holepunchto/my-test', numSigners = 5) {
+async function setupMultisig(namespace = 'holepunchto/my-test', numSigners = 5) {
   const signers = []
   for (let i = 0; i < numSigners; i++) {
     const seed = sodium.sodium_malloc(sodium.randombytes_SEEDBYTES)
@@ -2036,7 +2048,7 @@ function setupMultisig(namespace = 'holepunchto/my-test', numSigners = 5) {
     const password = sodium.sodium_malloc(8)
     sodium.randombytes_buf_deterministic(password, seed)
 
-    const keys = CoreSign.generateKeys(password)
+    const keys = await CoreSign.generateKeys(password)
     signers.push({ ...keys, seed })
   }
   const publicKeys = signers.map((signer) => idEnc.normalize(signer.publicKey))
@@ -2044,8 +2056,8 @@ function setupMultisig(namespace = 'holepunchto/my-test', numSigners = 5) {
   return { namespace, signers, publicKeys }
 }
 
-function signResponse(request, signer) {
-  const { clonedSigner, decodedReq, signatures } = sign(request, signer)
+async function signResponse(request, signer) {
+  const { clonedSigner, decodedReq, signatures } = await sign(request, signer)
   const res = SignRequest.encodeResponse({
     version: decodedReq.version,
     requestHash: crypto.hash(request),
@@ -2055,7 +2067,7 @@ function signResponse(request, signer) {
   return z32.encode(res)
 }
 
-function sign(request, signer) {
+async function sign(request, signer) {
   // clone to avoid mutation
   const clonedSigner = Object.keys(signer).reduce((acc, key) => {
     acc[key] = b4a.from(signer[key])
@@ -2067,7 +2079,7 @@ function sign(request, signer) {
   const password = sodium.sodium_malloc(8)
   sodium.randombytes_buf_deterministic(password, clonedSigner.seed)
 
-  const response = CoreSign.sign(request, clonedSigner.secretKey, password)
+  const response = await CoreSign.sign(request, clonedSigner.secretKey, password)
   const { signatures } = SignRequest.decodeResponse(response)
 
   return { clonedSigner, decodedReq, signatures }

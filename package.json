@@ -36,7 +36,7 @@
     "bare-subprocess": "^5.2.2",
     "brittle": "^3.19.1",
     "hypercore-crypto": "^3.6.1",
-    "hypercore-sign": "^4.0.1",
+    "hypercore-sign-lib": "^1.1.0",
     "hyperdht": "^6.29.0",
     "lunte": "^1.6.0",
     "newline-decoder": "^1.0.2",
