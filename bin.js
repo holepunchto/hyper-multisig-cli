@@ -42,6 +42,7 @@ const cmdVerify = command(
 const cmdCommit = command(
   'commit',
   description('Commit multisig'),
+  flag('--swarm-client-only', 'Swarm in client mode only'),
   flag(
     '--first-commit',
     'Set when this is the first commit to the multisig target, so it skips those checks'
@@ -178,7 +179,7 @@ async function verify() {
 async function commit() {
   const request = cmdCommit.args.request
   const responses = cmdCommit.rest || []
-  const { firstCommit, forceDangerous, peerUpdateTimeout } = cmdCommit.flags
+  const { swarmClientOnly, firstCommit, forceDangerous, peerUpdateTimeout } = cmdCommit.flags
   if (!request || !responses?.length) throw new Error('Invalid command')
 
   console.info(`Committing request ${request}`)
@@ -191,6 +192,7 @@ async function commit() {
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
+      swarmAsServer: !swarmClientOnly,
       skipTargetChecks: firstCommit,
       force: forceDangerous,
       peerUpdateTimeout: peerUpdateTimeout,
@@ -199,6 +201,7 @@ async function commit() {
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
+      swarmAsServer: !swarmClientOnly,
       skipTargetChecks: firstCommit,
       force: forceDangerous,
       peerUpdateTimeout: peerUpdateTimeout,
