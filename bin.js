@@ -316,7 +316,7 @@ function setupProgressLogs(req, name, firstCommit, dryRun) {
     )
   })
   req.on('commit-start', () => {
-    console.log(dryRun ? `Dry run the ${name} commit` : `Committing the ${name}...`)
+    console.log(dryRun ? `Dry running the ${name} commit` : `Committing the ${name}...`)
   })
   req.on('verify-committed-start', (key) => {
     console.log(`Committed the ${name}, key ${idEnc.normalize(key)} (hex: ${key.toString('hex')})`)
