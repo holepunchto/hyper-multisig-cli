@@ -156,6 +156,7 @@ async function verify() {
       dryRun: true,
       skipTargetChecks: firstCommit,
       peerUpdateTimeout: peerUpdateTimeout,
+      swarmAsServer: false,
       quorum
     })
   } else {
@@ -164,6 +165,7 @@ async function verify() {
       dryRun: true,
       skipTargetChecks: firstCommit,
       peerUpdateTimeout: peerUpdateTimeout,
+      swarmAsServer: false,
       quorum
     })
   }
