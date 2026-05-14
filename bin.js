@@ -166,7 +166,7 @@ async function verify() {
       quorum
     })
   }
-  setupProgressLogs(runner, type, firstCommit)
+  setupProgressLogs(runner, type, firstCommit, true)
 
   const res = await runner.done()
 
@@ -208,7 +208,7 @@ async function commit() {
       quorum
     })
   }
-  setupProgressLogs(runner, type, firstCommit)
+  setupProgressLogs(runner, type, firstCommit, false)
 
   const res = await runner.done()
 
@@ -304,14 +304,14 @@ async function seed() {
   goodbye(() => clearInterval(interval))
 }
 
-function setupProgressLogs(req, name, firstCommit) {
+function setupProgressLogs(req, name, firstCommit, dryRun) {
   req.on('verify-committable-start', (srcKey, tgtKey) => {
     console.log(
       `Verifying the ${name} is safe to commit: source ${idEnc.normalize(srcKey)} (hex: ${srcKey.toString('hex')}) to multisig target ${idEnc.normalize(tgtKey)} (hex: ${tgtKey.toString('hex')})`
     )
   })
   req.on('commit-start', () => {
-    console.log(`Committing the ${name}...`)
+    console.log(dryRun ? `Dry run the ${name} commit` : `Committing the ${name}...`)
   })
   req.on('verify-committed-start', (key) => {
     console.log(`Committed the ${name}, key ${idEnc.normalize(key)} (hex: ${key.toString('hex')})`)
@@ -331,7 +331,8 @@ function printRequest(request) {
     key: runner.id,
     keyHex: runner.key.toString('hex'),
     length: runner.length,
-    treeHash: idEnc.normalize(runner.treeHash)
+    treeHash: idEnc.normalize(runner.treeHash),
+    treeHashHex: runner.treeHash.toString('hex')
   }
   console.log('Request:', JSON.stringify(reqMsg, null, 2))
   console.log('To sign, run:', `\nhypercore-sign ${reqStr}`)
