@@ -42,7 +42,7 @@ const cmdVerify = command(
 const cmdCommit = command(
   'commit',
   description('Commit multisig'),
-  flag('--swarm-client-only', 'Swarm in client mode'),
+  flag('--swarm-client-only', 'Swarm in client mode only'),
   flag(
     '--first-commit',
     'Set when this is the first commit to the multisig target, so it skips those checks'
