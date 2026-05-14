@@ -180,7 +180,9 @@ async function verify() {
 async function commit() {
   const request = cmdCommit.args.request
   const responses = cmdCommit.rest || []
-  const { swarmClientOnly, firstCommit, skipTargetWellSeeded, forceDangerous, peerUpdateTimeout } = cmdCommit.flags
+  const { swarmClientOnly, firstCommit, skipTargetWellSeeded, forceDangerous, peerUpdateTimeout } =
+    cmdCommit.flags
+
   if (!request || !responses?.length) throw new Error('Invalid command')
 
   console.info(`Committing request ${request}`)
