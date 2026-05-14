@@ -173,3 +173,15 @@ Do as the logs instruct, and add your target key to 2 or more seeders. For this 
 Once the program detects at least 2 seeders have fully downloaded the multisig drive, it will inform you it is done. Shut down with ctrl-c.
 
 Note: for any future updates to your multisig core, remove the `first-commit` flag.
+
+## Recovering From Incompletely Seeded Commit (Advanced)
+
+If the committer's process ends prematurely, after committing but before the commit got fully seeded, the multisig drive ends up in an incomplete state: the swarm knows its length has been updated, but does not have all new blocks.
+
+Re-committing will trigger a 'TARGET_CORE_NOT_FULLY_SEEDED' error, which needs to be skipped for this recovery. But no other checks should be skipped.
+
+Use the `--skip-target-well-seeded` flag to re-commit the drive. Note: re-committing is also possible from another machine.
+
+```
+hyper-multisig commit --skip-target-well-seeded ...
+```
