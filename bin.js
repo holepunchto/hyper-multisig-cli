@@ -143,7 +143,7 @@ async function verify() {
   const request = cmdVerify.args.request
   const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
-  console.info(`Committing request ${request}`)
+  console.info(`Verifying request ${request}`)
   console.info(`Responses:\n -${responses.join('\n -')}`)
 
   const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
