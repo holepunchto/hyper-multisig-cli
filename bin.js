@@ -33,6 +33,8 @@ const cmdVerify = command(
     '--first-commit',
     'Set when this is the first commit to the multisig target, so it skips those checks'
   ),
+  flag('--skip-target-well-seeded', 'Skip checking multisig target is well seeded'),
+
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
@@ -139,7 +141,7 @@ async function request() {
 }
 
 async function verify() {
-  const { firstCommit, peerUpdateTimeout } = cmdVerify.flags
+  const { firstCommit, peerUpdateTimeout, skipTargetWellSeeded } = cmdVerify.flags
   const request = cmdVerify.args.request
   const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
@@ -155,6 +157,7 @@ async function verify() {
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
       dryRun: true,
       skipTargetChecks: firstCommit,
+      skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
       quorum
     })
@@ -163,6 +166,7 @@ async function verify() {
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       dryRun: true,
       skipTargetChecks: firstCommit,
+      skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
       quorum
     })
