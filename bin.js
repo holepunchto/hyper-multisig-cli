@@ -159,6 +159,7 @@ async function verify() {
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
+      swarmAsServer: false,
       quorum
     })
   } else {
@@ -168,6 +169,7 @@ async function verify() {
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
+      swarmAsServer: false,
       quorum
     })
   }
