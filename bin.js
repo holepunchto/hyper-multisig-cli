@@ -165,7 +165,7 @@ async function verify() {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
 
     let startLength = start
-    if (startLength === null) {
+    if (!firstCommit && startLength === null) {
       const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
       startLength = await getCoreLength(core, swarm)
     }
@@ -184,7 +184,7 @@ async function verify() {
 
     let startLength = start
     let blobsStartLength = blobsStart
-    if (startLength === null || blobsStartLength === null) {
+    if (!firstCommit && (startLength === null || blobsStartLength === null)) {
       const { core, blobsCore } = await multisig.createCore(publicKeys, namespace, { quorum })
       startLength = await getCoreLength(core, swarm)
       blobsStartLength = await getCoreLength(blobsCore, swarm)
