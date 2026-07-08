@@ -185,7 +185,7 @@ async function verify() {
     let startLength = start
     let blobsStartLength = blobsStart
     if (!firstCommit && (startLength === null || blobsStartLength === null)) {
-      const { core, blobsCore } = await multisig.createCore(publicKeys, namespace, { quorum })
+      const { core, blobsCore } = await multisig.createDrive(publicKeys, namespace, { quorum })
       startLength = await getCoreLength(core, swarm)
       blobsStartLength = await getCoreLength(blobsCore, swarm)
     }
