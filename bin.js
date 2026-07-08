@@ -167,7 +167,11 @@ async function verify() {
     let startLength = start
     if (!firstCommit && startLength === null) {
       const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-      startLength = await getCoreLength(core, swarm)
+      const peerAdd = once(core, 'peer-add')
+      swarm.join(core.discoveryKey, { client: true, server: false })
+      await peerAdd
+      await core.update({ wait: true })
+      startLength = core.length
     }
 
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
@@ -186,11 +190,18 @@ async function verify() {
     let blobsStartLength = blobsStart
     if (!firstCommit && (startLength === null || blobsStartLength === null)) {
       const { core, blobsCore } = await multisig.createDrive(publicKeys, namespace, { quorum })
+      const peerAdd = once(core, 'peer-add')
+      const peerAddBlobs = once(blobsCore, 'peer-add')
+      swarm.join(core.discoveryKey, { client: true, server: false })
       if (startLength === null) {
-        startLength = await getCoreLength(core, swarm)
+        await peerAdd
+        await core.update({ wait: true })
+        startLength = core.length
       }
       if (blobsStartLength === null) {
-        blobsStartLength = await getCoreLength(blobsCore, swarm)
+        await peerAddBlobs
+        await blobsCore.update({ wait: true })
+        blobsStartLength = blobsCore.length
       }
     }
 
@@ -473,14 +484,6 @@ async function replication(storage, bootstrap) {
     store.replicate(conn)
   })
   return { store, swarm }
-}
-
-async function getCoreLength(core, swarm) {
-  const peerAdd = once(core, 'peer-add')
-  swarm.join(core.discoveryKey, { client: true, server: false })
-  await peerAdd
-  await core.update({ wait: true })
-  return core.length
 }
 
 function wrapErrHandler(func) {
