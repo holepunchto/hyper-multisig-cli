@@ -10,6 +10,7 @@ const Hyperdrive = require('hyperdrive')
 const Hyperswarm = require('hyperswarm')
 const { command, flag, arg, rest, description } = require('paparam')
 const z32 = require('z32')
+const { once } = require('events')
 
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
@@ -30,6 +31,7 @@ const cmdVerify = command(
   'verify',
   description('Verify multisig'),
   flag('--start <start>', 'Start length'),
+  flag('--blobs-start <blobsStart>', 'Blobs start length'),
   flag(
     '--first-commit',
     'Set when this is the first commit to the multisig target, so it skips those checks'
@@ -142,7 +144,13 @@ async function request() {
 }
 
 async function verify() {
-  const { start, firstCommit, peerUpdateTimeout, skipTargetWellSeeded } = cmdVerify.flags
+  const {
+    start = null,
+    blobsStart = null,
+    firstCommit,
+    peerUpdateTimeout,
+    skipTargetWellSeeded
+  } = cmdVerify.flags
   const request = cmdVerify.args.request
   const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
@@ -155,9 +163,16 @@ async function verify() {
   let runner
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
+
+    let startLength = start
+    if (startLength === null) {
+      const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
+      startLength = await getCoreLength(core, swarm)
+    }
+
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
       dryRun: true,
-      start,
+      start: startLength,
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
@@ -166,9 +181,19 @@ async function verify() {
     })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+
+    let startLength = start
+    let blobsStartLength = blobsStart
+    if (startLength === null || blobsStartLength === null) {
+      const { core, blobsCore } = await multisig.createCore(publicKeys, namespace, { quorum })
+      startLength = await getCoreLength(core, swarm)
+      blobsStartLength = await getCoreLength(blobsCore, swarm)
+    }
+
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       dryRun: true,
-      start,
+      start: startLength,
+      blobsStart: blobsStartLength,
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
@@ -444,6 +469,14 @@ async function replication(storage, bootstrap) {
     store.replicate(conn)
   })
   return { store, swarm }
+}
+
+async function getCoreLength(core, swarm) {
+  const peerAdd = once(core, 'peer-add')
+  swarm.join(core.discoveryKey, { client: true, server: false })
+  await peerAdd
+  await core.update({ wait: true })
+  return core.length
 }
 
 function wrapErrHandler(func) {
