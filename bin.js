@@ -143,13 +143,8 @@ async function request() {
 }
 
 async function verify() {
-  const {
-    start = null,
-    blobsStart = null,
-    firstCommit,
-    peerUpdateTimeout,
-    skipTargetWellSeeded
-  } = cmdVerify.flags
+  const { start, blobsStart, firstCommit, peerUpdateTimeout, skipTargetWellSeeded } =
+    cmdVerify.flags
   const request = cmdVerify.args.request
   const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
