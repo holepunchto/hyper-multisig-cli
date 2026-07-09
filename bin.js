@@ -164,19 +164,9 @@ async function verify() {
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
 
-    let startLength = start
-    if (!firstCommit && startLength === null) {
-      const { core } = await multisig.createCore(publicKeys, namespace, { quorum })
-      const peerAdd = once(core, 'peer-add')
-      swarm.join(core.discoveryKey, { client: true, server: false })
-      await peerAdd
-      await core.update({ wait: true })
-      startLength = core.length
-    }
-
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
       dryRun: true,
-      start: startLength,
+      start,
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
@@ -186,29 +176,10 @@ async function verify() {
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
 
-    let startLength = start
-    let blobsStartLength = blobsStart
-    if (!firstCommit && (startLength === null || blobsStartLength === null)) {
-      const { core, blobsCore } = await multisig.createDrive(publicKeys, namespace, { quorum })
-      const peerAdd = once(core, 'peer-add')
-      const peerAddBlobs = once(blobsCore, 'peer-add')
-      swarm.join(core.discoveryKey, { client: true, server: false })
-      if (startLength === null) {
-        await peerAdd
-        await core.update({ wait: true })
-        startLength = core.length
-      }
-      if (blobsStartLength === null) {
-        await peerAddBlobs
-        await blobsCore.update({ wait: true })
-        blobsStartLength = blobsCore.length
-      }
-    }
-
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       dryRun: true,
-      start: startLength,
-      blobsStart: blobsStartLength,
+      start,
+      blobsStart,
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
