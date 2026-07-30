@@ -29,6 +29,8 @@ const cmdRequest = command(
 const cmdVerify = command(
   'verify',
   description('Verify multisig'),
+  flag('--start <start>', 'Start length'),
+  flag('--blobs-start <blobsStart>', 'Blobs start length'),
   flag(
     '--first-commit',
     'Set when this is the first commit to the multisig target, so it skips those checks'
@@ -141,7 +143,8 @@ async function request() {
 }
 
 async function verify() {
-  const { firstCommit, peerUpdateTimeout, skipTargetWellSeeded } = cmdVerify.flags
+  const { start, blobsStart, firstCommit, peerUpdateTimeout, skipTargetWellSeeded } =
+    cmdVerify.flags
   const request = cmdVerify.args.request
   const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
@@ -154,8 +157,8 @@ async function verify() {
   let runner
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
-    runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
-      dryRun: true,
+    runner = multisig.verifyCore(publicKeys, namespace, srcCore, request, responses, {
+      start,
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
@@ -164,8 +167,9 @@ async function verify() {
     })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
-    runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
-      dryRun: true,
+    runner = multisig.verifyDrive(publicKeys, namespace, srcDrive, request, responses, {
+      start,
+      blobsStart,
       skipTargetChecks: firstCommit,
       skipTargetWellSeeded,
       peerUpdateTimeout: peerUpdateTimeout,
