@@ -350,7 +350,7 @@ function printRequest(request) {
     treeHashHex: runner.treeHash.toString('hex')
   }
   console.log('Request:', JSON.stringify(reqMsg, null, 2))
-  console.log('To sign, run:', `\nhypercore-sign ${reqStr}`)
+  console.log('To sign, run:', `\nhypercore-sign sign ${reqStr}`)
 }
 
 function printCommit(manifest, quorum, result, dryRun) {
