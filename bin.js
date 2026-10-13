@@ -350,11 +350,11 @@ function setupProgressLogs(req, name, firstCommit, dryRun) {
 
 function logBatchProgress(label) {
   let lastLog = 0
-  return ({ start, end, idx }) => {
+  return ({ processed, total }) => {
     const now = Date.now()
-    if (idx < end - 1 && now - lastLog < PROGRESS_LOG_INTERVAL) return
+    if (processed < total && now - lastLog < PROGRESS_LOG_INTERVAL) return
     lastLog = now
-    console.log(`Preparing ${label}: ${idx - start + 1} / ${end - start} blocks`)
+    console.log(`Preparing ${label}: ${processed} / ${total} blocks`)
   }
 }
 
