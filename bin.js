@@ -14,6 +14,7 @@ const z32 = require('z32')
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
 const DEFAULT_SEED_LOG_INTERVAL = 15000
+const PROGRESS_LOG_INTERVAL = 2000
 
 const cmdLink = command('link', description('Create multisig key'), wrapErrHandler(link))
 
@@ -157,6 +158,7 @@ async function verify() {
   let runner
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    logDownloadProgress(srcCore)
     runner = multisig.verifyCore(publicKeys, namespace, srcCore, request, responses, {
       start,
       skipTargetChecks: firstCommit,
@@ -167,6 +169,8 @@ async function verify() {
     })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    logDownloadProgress(srcDrive.core)
+    srcDrive.once('blobs', (blobs) => logDownloadProgress(blobs.core))
     runner = multisig.verifyDrive(publicKeys, namespace, srcDrive, request, responses, {
       start,
       blobsStart,
@@ -204,6 +208,7 @@ async function commit() {
   let runner
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
+    logDownloadProgress(srcCore)
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
       swarmAsServer: !swarmClientOnly,
       skipTargetChecks: firstCommit,
@@ -214,6 +219,8 @@ async function commit() {
     })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
+    logDownloadProgress(srcDrive.core)
+    srcDrive.once('blobs', (blobs) => logDownloadProgress(blobs.core))
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       swarmAsServer: !swarmClientOnly,
       skipTargetChecks: firstCommit,
@@ -328,6 +335,8 @@ function setupProgressLogs(req, name, firstCommit, dryRun) {
   req.on('commit-start', () => {
     console.log(dryRun ? `Dry running the ${name} commit` : `Committing the ${name}...`)
   })
+  req.on('commit-blobs-progress', logBatchProgress('blobs batch'))
+  req.on('commit-progress', logBatchProgress(name === 'drive' ? 'db batch' : 'batch'))
   req.on('verify-committed-start', (key) => {
     console.log(`Committed the ${name}, key ${idEnc.normalize(key)} (hex: ${key.toString('hex')})`)
     console.log('Waiting for remote seeders to pick up the changes...')
@@ -336,6 +345,30 @@ function setupProgressLogs(req, name, firstCommit, dryRun) {
         'Please add this key to the seeders now. The logs here will notify you when it is picked up by them. Do not shut down until that happens.'
       )
     }
+  })
+}
+
+function logBatchProgress(label) {
+  let lastLog = 0
+  return ({ processed, total }) => {
+    const now = Date.now()
+    if (processed < total && now - lastLog < PROGRESS_LOG_INTERVAL) return
+    lastLog = now
+    console.log(`Preparing ${label}: ${processed} / ${total} blocks`)
+  }
+}
+
+function logDownloadProgress(core) {
+  let downloaded = 0
+  let lastLog = 0
+  core.on('download', () => {
+    downloaded++
+    const now = Date.now()
+    if (now - lastLog < PROGRESS_LOG_INTERVAL) return
+    lastLog = now
+    console.log(
+      `Downloading source core ${idEnc.normalize(core.key)}: ${downloaded} blocks downloaded`
+    )
   })
 }
 
