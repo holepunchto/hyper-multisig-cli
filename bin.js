@@ -14,7 +14,7 @@ const z32 = require('z32')
 const DEFAULT_CONFIG_PATH = './multisig.json'
 const DEFAULT_STORAGE_PATH = './storage'
 const DEFAULT_SEED_LOG_INTERVAL = 15000
-const PROGRESS_LOG_INTERVAL = 2000
+const DEFAULT_PROGRESS_LOG_INTERVAL = 2000
 
 const cmdLink = command('link', description('Create multisig key'), wrapErrHandler(link))
 
@@ -39,6 +39,9 @@ const cmdVerify = command(
   flag('--skip-target-well-seeded', 'Skip checking multisig target is well seeded'),
 
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
+  flag('--progress-log-interval <ms>', 'Minimum interval in ms between progress logs').default(
+    DEFAULT_PROGRESS_LOG_INTERVAL
+  ),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
   wrapErrHandler(verify)
@@ -55,6 +58,9 @@ const cmdCommit = command(
   flag('--skip-target-well-seeded', 'Skip checking multisig target is well seeded'),
   flag('--force-dangerous', 'Advanced option, it might break the core on misuse'),
   flag('--peer-update-timeout <ms>', 'Peer update timeout in ms'),
+  flag('--progress-log-interval <ms>', 'Minimum interval in ms between progress logs').default(
+    DEFAULT_PROGRESS_LOG_INTERVAL
+  ),
   arg('request', 'Signing request'),
   rest('[...responses]', 'Signing responses'),
   wrapErrHandler(commit)
@@ -146,6 +152,7 @@ async function request() {
 async function verify() {
   const { start, blobsStart, firstCommit, peerUpdateTimeout, skipTargetWellSeeded } =
     cmdVerify.flags
+  const progressLogInterval = +cmdVerify.flags.progressLogInterval
   const request = cmdVerify.args.request
   const responses = cmdVerify.rest || []
   if (!request) throw new Error('Invalid command')
@@ -158,7 +165,7 @@ async function verify() {
   let runner
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
-    logDownloadProgress(srcCore)
+    logDownloadProgress(srcCore, progressLogInterval)
     runner = multisig.verifyCore(publicKeys, namespace, srcCore, request, responses, {
       start,
       skipTargetChecks: firstCommit,
@@ -169,8 +176,8 @@ async function verify() {
     })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
-    logDownloadProgress(srcDrive.core)
-    srcDrive.once('blobs', (blobs) => logDownloadProgress(blobs.core))
+    logDownloadProgress(srcDrive.core, progressLogInterval)
+    srcDrive.once('blobs', (blobs) => logDownloadProgress(blobs.core, progressLogInterval))
     runner = multisig.verifyDrive(publicKeys, namespace, srcDrive, request, responses, {
       start,
       blobsStart,
@@ -181,7 +188,7 @@ async function verify() {
       quorum
     })
   }
-  setupProgressLogs(runner, type, firstCommit, true)
+  setupProgressLogs(runner, type, firstCommit, true, progressLogInterval)
 
   const res = await runner.done()
 
@@ -196,6 +203,7 @@ async function commit() {
   const responses = cmdCommit.rest || []
   const { swarmClientOnly, firstCommit, skipTargetWellSeeded, forceDangerous, peerUpdateTimeout } =
     cmdCommit.flags
+  const progressLogInterval = +cmdCommit.flags.progressLogInterval
 
   if (!request || !responses?.length) throw new Error('Invalid command')
 
@@ -208,7 +216,7 @@ async function commit() {
   let runner
   if (type === 'core') {
     const srcCore = store.get({ key: idEnc.decode(srcKey) })
-    logDownloadProgress(srcCore)
+    logDownloadProgress(srcCore, progressLogInterval)
     runner = multisig.commitCore(publicKeys, namespace, srcCore, request, responses, {
       swarmAsServer: !swarmClientOnly,
       skipTargetChecks: firstCommit,
@@ -219,8 +227,8 @@ async function commit() {
     })
   } else {
     const srcDrive = new Hyperdrive(store, idEnc.decode(srcKey))
-    logDownloadProgress(srcDrive.core)
-    srcDrive.once('blobs', (blobs) => logDownloadProgress(blobs.core))
+    logDownloadProgress(srcDrive.core, progressLogInterval)
+    srcDrive.once('blobs', (blobs) => logDownloadProgress(blobs.core, progressLogInterval))
     runner = multisig.commitDrive(publicKeys, namespace, srcDrive, request, responses, {
       swarmAsServer: !swarmClientOnly,
       skipTargetChecks: firstCommit,
@@ -230,7 +238,7 @@ async function commit() {
       quorum
     })
   }
-  setupProgressLogs(runner, type, firstCommit, false)
+  setupProgressLogs(runner, type, firstCommit, false, progressLogInterval)
 
   const res = await runner.done()
 
@@ -326,7 +334,7 @@ async function seed() {
   goodbye(() => clearInterval(interval))
 }
 
-function setupProgressLogs(req, name, firstCommit, dryRun) {
+function setupProgressLogs(req, name, firstCommit, dryRun, progressLogInterval) {
   req.on('verify-committable-start', (srcKey, tgtKey) => {
     console.log(
       `Verifying the ${name} is safe to commit: source ${idEnc.normalize(srcKey)} (hex: ${srcKey.toString('hex')}) to multisig target ${idEnc.normalize(tgtKey)} (hex: ${tgtKey.toString('hex')})`
@@ -335,8 +343,11 @@ function setupProgressLogs(req, name, firstCommit, dryRun) {
   req.on('commit-start', () => {
     console.log(dryRun ? `Dry running the ${name} commit` : `Committing the ${name}...`)
   })
-  req.on('commit-blobs-progress', logBatchProgress('blobs batch'))
-  req.on('commit-progress', logBatchProgress(name === 'drive' ? 'db batch' : 'batch'))
+  req.on('commit-blobs-progress', logBatchProgress('blobs batch', progressLogInterval))
+  req.on(
+    'commit-progress',
+    logBatchProgress(name === 'drive' ? 'db batch' : 'batch', progressLogInterval)
+  )
   req.on('verify-committed-start', (key) => {
     console.log(`Committed the ${name}, key ${idEnc.normalize(key)} (hex: ${key.toString('hex')})`)
     console.log('Waiting for remote seeders to pick up the changes...')
@@ -348,23 +359,23 @@ function setupProgressLogs(req, name, firstCommit, dryRun) {
   })
 }
 
-function logBatchProgress(label) {
+function logBatchProgress(label, interval) {
   let lastLog = 0
   return ({ processed, total }) => {
     const now = Date.now()
-    if (processed < total && now - lastLog < PROGRESS_LOG_INTERVAL) return
+    if (processed < total && now - lastLog < interval) return
     lastLog = now
     console.log(`Preparing ${label}: ${processed} / ${total} blocks`)
   }
 }
 
-function logDownloadProgress(core) {
+function logDownloadProgress(core, interval) {
   let downloaded = 0
   let lastLog = 0
   core.on('download', () => {
     downloaded++
     const now = Date.now()
-    if (now - lastLog < PROGRESS_LOG_INTERVAL) return
+    if (now - lastLog < interval) return
     lastLog = now
     console.log(
       `Downloading source core ${idEnc.normalize(core.key)}: ${downloaded} blocks downloaded`
