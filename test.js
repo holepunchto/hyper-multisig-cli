@@ -149,7 +149,7 @@ test('core request and sign CLI flow', async (t) => {
   const tRequestCore = t.test('Request core CLI')
   tRequestCore.plan(2)
   const tVerifyCore = t.test('Verify core CLI')
-  tVerifyCore.plan(4)
+  tVerifyCore.plan(5)
   const tCommitCore = t.test('Commit core CLI')
   tCommitCore.plan(1)
 
@@ -243,6 +243,8 @@ test('core request and sign CLI flow', async (t) => {
       cliStorageDir,
       'verify',
       '--first-commit',
+      '--progress-log-interval',
+      '0',
       request,
       ...responses
     ])
@@ -262,6 +264,10 @@ test('core request and sign CLI flow', async (t) => {
     const stdoutDec = new NewlineDecoder('utf-8')
     verifyCoreProc.stdout.on('data', (d) => {
       for (const line of stdoutDec.push(d)) {
+        // the default interval would throttle every download log after the first
+        if (line.includes(': 2 blocks downloaded')) {
+          tVerifyCore.pass('consecutive downloads are logged')
+        }
         if (line.includes('Quorum')) {
           const quorum = parseInt(line.split('Quorum: ')[1].split(' / ')[0])
           if (quorum === responses.length) {
