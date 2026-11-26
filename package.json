@@ -1,6 +1,6 @@
 {
   "name": "hyper-multisig-cli",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "CLI of hyper-multisig",
   "main": "bin.js",
   "bin": {
