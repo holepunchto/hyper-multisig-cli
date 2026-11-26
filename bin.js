@@ -101,7 +101,7 @@ async function request() {
   const { force, peerUpdateTimeout } = cmdRequest.flags
   if (!length) throw new Error('Invalid command')
 
-  const { type, publicKeys, namespace, srcKey, quorum, store, swarm } = await setup()
+  const { type, publicKeys, namespace, srcKey, quorum, legacy, store, swarm } = await setup()
   const multisig = new Multisig(store, swarm)
 
   let request
@@ -112,7 +112,7 @@ async function request() {
         force,
         peerUpdateTimeout: peerUpdateTimeout,
         quorum,
-        legacy: true // legacy requests compat with hypercore-sign v3
+        legacy // legacy requests compat with hypercore-sign v3
       })
       .done()
     request = res.request
@@ -122,7 +122,7 @@ async function request() {
       force,
       peerUpdateTimeout: peerUpdateTimeout,
       quorum,
-      legacy: true // legacy requests compat with hypercore-sign v3
+      legacy // legacy requests compat with hypercore-sign v3
     })
 
     req.on('getting-src-blobs', () => {
@@ -413,7 +413,7 @@ async function setup(opts = {}) {
 
   const { withReplication = true } = opts
 
-  const { type, publicKeys, namespace, srcKey, bootstrap, quorum } = await loadConfig(
+  const { type, publicKeys, namespace, srcKey, bootstrap, quorum, legacy } = await loadConfig(
     configPath,
     opts
   )
@@ -425,7 +425,7 @@ async function setup(opts = {}) {
     swarm = res.swarm
   }
 
-  return { type, publicKeys, namespace, srcKey, quorum, store, swarm }
+  return { type, publicKeys, namespace, srcKey, quorum, legacy, store, swarm }
 }
 
 /**
@@ -439,7 +439,8 @@ async function loadConfig(configPath, opts = {}) {
     srcKey,
     bootstrap,
     quorum = null,
-    multisigKey = null
+    multisigKey = null,
+    legacy = true
   } = JSON.parse(await fs.readFile(configPath, 'utf-8'))
 
   const { srcKeyRequired = true } = opts
@@ -469,7 +470,7 @@ async function loadConfig(configPath, opts = {}) {
     }
   }
 
-  return { type, publicKeys, namespace, srcKey, bootstrap, quorum }
+  return { type, publicKeys, namespace, srcKey, bootstrap, quorum, legacy }
 }
 
 /**
